@@ -27,12 +27,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.firstinspires.ftc.robotcontroller.external.samples;
+package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+import com.qualcomm.hardware.bosch.BNO055IMU;
+import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.util.Range;
+import com.qualcomm.robotcore.hardware.AnalogInput;
+import com.qualcomm.robotcore.hardware.AnalogInputController;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DeviceInterfaceModule;
+
+import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
 
 /**
  * This OpMode uses the common HardwareK9bot class to define the devices on the robot.
@@ -51,26 +57,46 @@ import com.qualcomm.robotcore.util.Range;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@TeleOp(name="K9bot: Telop Tank", group="K9bot")
-@Disabled
-public class K9botTeleopTank_Linear extends LinearOpMode {
+@TeleOp(name="cwbot: Telop Tank", group="cwbot")
+public class cwbotTeleopTank_Linear extends LinearOpMode {
 
     /* Declare OpMode members. */
-    HardwareK9bot   robot           = new HardwareK9bot();              // Use a K9'shardware
-    double          armPosition     = robot.ARM_HOME;                   // Servo safe position
-    double          clawPosition    = robot.CLAW_HOME;                  // Servo safe position
-    final double    CLAW_SPEED      = 0.01 ;                            // sets rate to move servo
-    final double    ARM_SPEED       = 0.01 ;                            // sets rate to move servo
+    HardwareCwBot   robot           = new HardwareCwBot();              // Use a K9'shardware
+    // The IMU sensor object
+    BNO055IMU imu;
+
+    DcMotor[] allMotors = new DcMotor[4];
 
     @Override
     public void runOpMode() {
-        double left;
-        double right;
-
         /* Initialize the hardware variables.
          * The init() method of the hardware class does all the work here
          */
         robot.init(hardwareMap);
+        allMotors[0] = robot.leftFrontMotor;
+        allMotors[1] = robot.rightFrontMotor;
+        allMotors[2] = robot.leftRearMotor;
+        allMotors[3] = robot.rightRearMotor;
+
+        DeviceInterfaceModule dim = hardwareMap.get(DeviceInterfaceModule.class, "DIM1");   //  Use generic form of device mapping
+//        AnalogInput ds = hardwareMap.get(AnalogInput.class, "Ultrasound");
+        AnalogInput ds = new AnalogInput(dim,7);
+
+
+
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
+        //parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
+        //parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
+        //parameters.loggingEnabled      = true;
+        //parameters.loggingTag          = "IMU";
+        //parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
+
+        // Retrieve and initialize the IMU. We expect the IMU to be attached to an I2C port
+        // on a Core Device Interface Module, configured to be a sensor of type "AdaFruit IMU",
+        // and named "imu".
+        imu = hardwareMap.get(BNO055IMU.class, "imu");
+        imu.initialize(parameters);
 
         // Send telemetry message to signify robot waiting;
         telemetry.addData("Say", "Hello Driver");    //
@@ -79,42 +105,92 @@ public class K9botTeleopTank_Linear extends LinearOpMode {
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
+        float weightAdjust = 0.4f;
+        double dsAverage = 0.0;
+
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
+            if (gamepad1.right_bumper)
+            {
+                RunToEncoder(1000);
+            }
+            if (gamepad1.left_bumper)
+            {
+                RunToEncoder(-1000);
+            }
 
-            // Run wheels in tank mode (note: The joystick goes negative when pushed forwards, so negate it)
-            left = -gamepad1.left_stick_y;
-            right = -gamepad1.right_stick_y;
-            robot.leftDrive.setPower(left);
-            robot.rightDrive.setPower(right);
 
-            // Use gamepad Y & A raise and lower the arm
-            if (gamepad1.a)
-                armPosition += ARM_SPEED;
-            else if (gamepad1.y)
-                armPosition -= ARM_SPEED;
+            float x = gamepad1.right_stick_x;
+            float y = -gamepad1.right_stick_y; // Negate to get +y forward.
+            float rotation = gamepad1.left_stick_x;
 
-            // Use gamepad X & B to open and close the claw
-            if (gamepad1.x)
-                clawPosition += CLAW_SPEED;
-            else if (gamepad1.b)
-                clawPosition -= CLAW_SPEED;
+            // A B
+            // C D
 
-            // Move both servos to new position.
-            armPosition  = Range.clip(armPosition, robot.ARM_MIN_RANGE, robot.ARM_MAX_RANGE);
-            robot.arm.setPosition(armPosition);
-            clawPosition = Range.clip(clawPosition, robot.CLAW_MIN_RANGE, robot.CLAW_MAX_RANGE);
-            robot.claw.setPosition(clawPosition);
+            float bc = (y-x);
+            float ad = (y+x);
+            float b = bc - rotation;
+            float c = (bc + rotation) * weightAdjust;
+            float a = ad + rotation;
+            float d = (ad - rotation) * weightAdjust;
 
-            // Send telemetry message to signify robot running;
-            telemetry.addData("arm",   "%.2f", armPosition);
-            telemetry.addData("claw",  "%.2f", clawPosition);
-            telemetry.addData("left",  "%.2f", left);
-            telemetry.addData("right", "%.2f", right);
+            float biggest = Math.max(Math.max(Math.abs(a),Math.abs(b)),Math.max(Math.abs(c),Math.abs(d)));
+            if (biggest < 1.0f) biggest = 1.0f;
+
+            robot.rightFrontMotor.setPower(b/biggest);
+            robot.leftRearMotor.setPower(c/biggest);
+            robot.leftFrontMotor.setPower(a/biggest);
+            robot.rightRearMotor.setPower(d/biggest);
+
+            int encoderA = robot.leftFrontMotor.getCurrentPosition();
+            int encoderB = robot.rightFrontMotor.getCurrentPosition();
+            int encoderC = robot.leftRearMotor.getCurrentPosition();
+            int encoderD = robot.rightRearMotor.getCurrentPosition();
+
+            Quaternion q = imu.getQuaternionOrientation();
+            double voltage = ds.getVoltage();
+            dsAverage = 0.9 * dsAverage + 0.1 * voltage;
+            telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
+            telemetry.addData("time", "%d",q.acquisitionTime/100000000l);
+            telemetry.addData("Encoders","%d %d", encoderC,encoderD);
+            telemetry.addData("ds",  "%.3f", dsAverage);
             telemetry.update();
 
             // Pause for 40 mS each cycle = update 25 times a second.
             sleep(40);
         }
+    }
+
+    void RunToEncoder(int ticks)
+    {
+        for (DcMotor motor : allMotors)
+        {
+            motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            motor.setTargetPosition(ticks);
+        }
+        for (DcMotor motor : allMotors)
+        {
+            motor.setPower(0.5);
+        }
+
+        while (opModeIsActive())
+        {
+            boolean anyBusy = false;
+            for (DcMotor motor : allMotors)
+                anyBusy |= motor.isBusy();
+            if (!anyBusy) break;
+        }
+        for (DcMotor motor : allMotors)
+        {
+            motor.setPower(0.0);
+        }
+
+    }
+
+    void ResetMotor(DcMotor motor)
+    {
+        motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
     }
 }
