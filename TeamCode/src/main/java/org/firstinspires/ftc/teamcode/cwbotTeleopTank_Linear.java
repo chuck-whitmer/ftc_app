@@ -65,7 +65,8 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
     // The IMU sensor object
     BNO055IMU imu;
 
-    DcMotor[] allMotors = new DcMotor[4];
+    DcMotor[] allMotors;
+    double[] powerFactor;
 
     @Override
     public void runOpMode() {
@@ -73,10 +74,11 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
          * The init() method of the hardware class does all the work here
          */
         robot.init(hardwareMap);
-        allMotors[0] = robot.leftFrontMotor;
-        allMotors[1] = robot.rightFrontMotor;
-        allMotors[2] = robot.leftRearMotor;
-        allMotors[3] = robot.rightRearMotor;
+        // A B
+        // C D
+        allMotors = new DcMotor[]
+           {robot.leftFrontMotor, robot.rightFrontMotor, robot.leftRearMotor, robot.rightRearMotor};
+        powerFactor = new double[] {0.73, 1.0, 0.73, 1.0};
 
         DeviceInterfaceModule dim = hardwareMap.get(DeviceInterfaceModule.class, "DIM1");   //  Use generic form of device mapping
 //        AnalogInput ds = hardwareMap.get(AnalogInput.class, "Ultrasound");
@@ -112,11 +114,11 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         while (opModeIsActive()) {
             if (gamepad1.right_bumper)
             {
-                RunToEncoder(1000);
+                RunToEncoder(2000);
             }
             if (gamepad1.left_bumper)
             {
-                RunToEncoder(-1000);
+                RunToEncoder(-2000);
             }
 
 
@@ -163,29 +165,42 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
 
     void RunToEncoder(int ticks)
     {
-        for (DcMotor motor : allMotors)
+        int n = allMotors.length;
+        int[] targets = new int[n];
+        for (int i=0; i<n; i++)
         {
+            DcMotor motor = allMotors[i];
             motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            motor.setTargetPosition(ticks);
+            targets[i] = (int)(ticks*powerFactor[i]);
+            motor.setTargetPosition(targets[i]);
         }
-        for (DcMotor motor : allMotors)
+        for (int i=0; i<allMotors.length; i++)
         {
-            motor.setPower(0.5);
+            allMotors[i].setPower(0.5 * powerFactor[i]);
         }
 
-        while (opModeIsActive())
+        boolean[] isDone = new boolean[n];
+        boolean allDone = false;
+        while (opModeIsActive() && !allDone)
         {
-            boolean anyBusy = false;
-            for (DcMotor motor : allMotors)
-                anyBusy |= motor.isBusy();
-            if (!anyBusy) break;
+            allDone = true;
+            for (int i=0; i<n; i++)
+            {
+                DcMotor motor = allMotors[i];
+                if (!isDone[i])
+                {
+                    if (!motor.isBusy())
+                    {
+                        motor.setPower(0.0);
+                        motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                        isDone[i] = true;
+                    } else {
+                        allDone = false;
+                    }
+                }
+            }
         }
-        for (DcMotor motor : allMotors)
-        {
-            motor.setPower(0.0);
-        }
-
     }
 
     void ResetMotor(DcMotor motor)
