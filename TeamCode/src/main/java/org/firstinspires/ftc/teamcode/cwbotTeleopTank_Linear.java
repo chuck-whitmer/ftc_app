@@ -75,19 +75,15 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
          */
         robot.init(hardwareMap);
         // A B
-        // C D
-        allMotors = new DcMotor[]
-           {robot.leftFrontMotor, robot.rightFrontMotor, robot.leftRearMotor, robot.rightRearMotor};
-        powerFactor = new double[] {0.73, 1.0, 0.73, 1.0};
+        allMotors = new DcMotor[] {robot.leftRearMotor, robot.rightRearMotor};
+        powerFactor = new double[] {1.0, 1.0};
 
         DeviceInterfaceModule dim = hardwareMap.get(DeviceInterfaceModule.class, "DIM1");   //  Use generic form of device mapping
 //        AnalogInput ds = hardwareMap.get(AnalogInput.class, "Ultrasound");
         AnalogInput ds = new AnalogInput(dim,7);
 
-
-
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
-        parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
+        //parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
         //parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
         //parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
         //parameters.loggingEnabled      = true;
@@ -107,7 +103,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
-        float weightAdjust = 0.4f;
         double dsAverage = 0.0;
 
         // run until the end of the match (driver presses STOP)
@@ -121,45 +116,38 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
                 RunToEncoder(-2000);
             }
 
-
             float x = gamepad1.right_stick_x;
             float y = -gamepad1.right_stick_y; // Negate to get +y forward.
             float rotation = gamepad1.left_stick_x;
 
             // A B
-            // C D
 
-            float bc = (y-x);
-            float ad = (y+x);
-            float b = bc - rotation;
-            float c = (bc + rotation) * weightAdjust;
-            float a = ad + rotation;
-            float d = (ad - rotation) * weightAdjust;
+            float b = y - rotation;
+            float a = y + rotation;
 
-            float biggest = Math.max(Math.max(Math.abs(a),Math.abs(b)),Math.max(Math.abs(c),Math.abs(d)));
+            float biggest = Math.max(Math.abs(a),Math.abs(b));
             if (biggest < 1.0f) biggest = 1.0f;
 
-            robot.rightFrontMotor.setPower(b/biggest);
-            robot.leftRearMotor.setPower(c/biggest);
-            robot.leftFrontMotor.setPower(a/biggest);
-            robot.rightRearMotor.setPower(d/biggest);
+            robot.rightRearMotor.setPower(b/biggest);
+            robot.leftRearMotor.setPower(a/biggest);
 
-            int encoderA = robot.leftFrontMotor.getCurrentPosition();
-            int encoderB = robot.rightFrontMotor.getCurrentPosition();
-            int encoderC = robot.leftRearMotor.getCurrentPosition();
-            int encoderD = robot.rightRearMotor.getCurrentPosition();
+            int encoderA = robot.leftRearMotor.getCurrentPosition();
+            int encoderB = robot.rightRearMotor.getCurrentPosition();
 
             Quaternion q = imu.getQuaternionOrientation();
+            // The sonar only refreshes at 6.7 Hz.
+            // We will average over 1 second to reduce noise.
             double voltage = ds.getVoltage();
-            dsAverage = 0.9 * dsAverage + 0.1 * voltage;
+            dsAverage = 0.96 * dsAverage + 0.04 * voltage;
             telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("time", "%d",q.acquisitionTime/100000000l);
-            telemetry.addData("Encoders","%d %d", encoderC,encoderD);
+            telemetry.addData("Encoders","%d %d", encoderA,encoderB);
             telemetry.addData("ds",  "%.3f", dsAverage);
             telemetry.update();
 
             // Pause for 40 mS each cycle = update 25 times a second.
-            sleep(40);
+            //sleep(40);
+            robot.waitForTick(40);
         }
     }
 

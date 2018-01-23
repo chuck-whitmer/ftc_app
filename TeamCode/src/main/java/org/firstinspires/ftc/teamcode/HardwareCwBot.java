@@ -25,8 +25,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class HardwareCwBot
 {
     /* Public OpMode members. */
-    public DcMotor rightFrontMotor = null;
-    public DcMotor leftFrontMotor = null;
     public DcMotor rightRearMotor = null;
     public DcMotor leftRearMotor = null;
     public Servo    phone       = null;
@@ -48,25 +46,17 @@ public class HardwareCwBot
         hwMap = ahwMap;
 
         // Define and Initialize Motors
-        rightFrontMotor = hwMap.dcMotor.get("RightFront");
-        leftFrontMotor = hwMap.dcMotor.get("LeftFront");
         rightRearMotor = hwMap.dcMotor.get("RightRear");
         leftRearMotor = hwMap.dcMotor.get("LeftRear");
-        rightFrontMotor.setDirection(DcMotor.Direction.FORWARD); // Set to REVERSE if using AndyMark motors
         rightRearMotor.setDirection(DcMotor.Direction.FORWARD); // Set to REVERSE if using AndyMark motors
-        leftFrontMotor.setDirection(DcMotor.Direction.REVERSE); // Set to REVERSE if using AndyMark motors
         leftRearMotor.setDirection(DcMotor.Direction.REVERSE); // Set to REVERSE if using AndyMark motors
 
         // Set all motors to zero power
-        rightFrontMotor.setPower(0);
-        leftFrontMotor.setPower(0);
         rightRearMotor.setPower(0);
         leftRearMotor.setPower(0);
 
         // Set all motors to run without encoders.
         // May want to use RUN_USING_ENCODERS if encoders are installed.
-        rightFrontMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        leftFrontMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightRearMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         leftRearMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
