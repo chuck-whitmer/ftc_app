@@ -54,11 +54,14 @@ public class HardwareCwBot
         // Set all motors to zero power
         rightRearMotor.setPower(0);
         leftRearMotor.setPower(0);
+        //rightRearMotor.setMaxSpeed(2000); // Defaults to 1120???
 
         // Set all motors to run without encoders.
         // May want to use RUN_USING_ENCODERS if encoders are installed.
-        rightRearMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        leftRearMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rightRearMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftRearMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+//        rightRearMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+//        leftRearMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // Define and initialize ALL installed servos.
         phone = hwMap.servo.get("phone");

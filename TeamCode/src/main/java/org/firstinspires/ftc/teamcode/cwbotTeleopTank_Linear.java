@@ -30,13 +30,12 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.hardware.bosch.BNO055IMU;
-import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
-import com.qualcomm.robotcore.hardware.AnalogInputController;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DeviceInterfaceModule;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
 
@@ -67,6 +66,10 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
 
     DcMotor[] allMotors;
     double[] powerFactor;
+    ElapsedTime timer = new ElapsedTime();
+
+    final double ticksPerCm = 1.0/0.02905;
+    final double ticksPerInch = 2.54 * ticksPerCm;
 
     @Override
     public void runOpMode() {
@@ -109,11 +112,13 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         while (opModeIsActive()) {
             if (gamepad1.right_bumper)
             {
-                RunToEncoder(2000);
+                TurnToHeading(90.0);
+//                RunToEncoder2((int)(26.0*ticksPerInch));
             }
             if (gamepad1.left_bumper)
             {
-                RunToEncoder(-2000);
+                TurnToHeading(0.0);
+//                RunToEncoder2(-(int)(26.0*ticksPerInch));
             }
 
             float x = gamepad1.right_stick_x;
@@ -140,7 +145,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
             double voltage = ds.getVoltage();
             dsAverage = 0.96 * dsAverage + 0.04 * voltage;
             telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
-            telemetry.addData("time", "%d",q.acquisitionTime/100000000l);
+            telemetry.addData("heading", "%.1f",getHeading());
             telemetry.addData("Encoders","%d %d", encoderA,encoderB);
             telemetry.addData("ds",  "%.3f", dsAverage);
             telemetry.update();
@@ -150,6 +155,152 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
             robot.waitForTick(40);
         }
     }
+
+    double getHeading()
+    {
+        Quaternion q = imu.getQuaternionOrientation();
+        double c = q.w;
+        double s = q.z;
+        double norm = Math.sqrt(c*c+s*s);
+        if (norm < 0.5)
+        {
+            telemetry.addData("Say", "IMU died!");
+            telemetry.update();
+            return 0.0;
+        }
+        c /= norm;
+        s /= norm;
+        double halfAngle = Math.atan2(s,c);
+        return (360.0 / Math.PI * halfAngle + 900.0) % 360.0 - 180.0; // Return -180 to +180.
+    }
+
+    double diffHeading(double target)
+    {
+        double diff = target - getHeading();
+        diff = (diff + 720.0) % 360.0;
+        if (diff > 180.0) diff -= 360;
+        return diff;
+    }
+
+    void RunToEncoder2(int ticks)
+    {
+        int maxSetSpeed = 1120;
+        double maxSpeed = 800.0;
+        int maxAcceleration = 4000;
+        int maxDeceleration = 8000;
+        double multiplier = 2.0;
+        double deltaT = 0.020;
+
+        int n = allMotors.length;
+        int[] targets = new int[n];
+        for (int i=0; i<n; i++) {
+            DcMotor motor = allMotors[i];
+            targets[i] = motor.getCurrentPosition() + ticks;
+        }
+        double[] lastSpeeds = new double[n];
+        double lastTime = timer.time()-deltaT;
+        int remainingTicks = Math.abs(ticks);
+        double highestSpeed = 0.0;
+        double dt = 0.020;
+        while (remainingTicks > 6 || highestSpeed > 2*dt*maxDeceleration)
+        {
+            double time = timer.time();
+            dt = time - lastTime;
+            lastTime = time;
+            for (int i=0; i<n; i++)
+            {
+                double maxNewSpeed;
+                double minNewSpeed;
+
+                double newSpeed = multiplier * (targets[i] - allMotors[i].getCurrentPosition());
+                if (newSpeed > 0.0)
+                {
+                    maxNewSpeed = Math.min(lastSpeeds[i] + dt*maxAcceleration,maxSpeed);
+                    minNewSpeed = lastSpeeds[i] - dt*maxDeceleration;
+                }
+                else
+                {
+                    maxNewSpeed = lastSpeeds[i] + dt*maxDeceleration;
+                    minNewSpeed = Math.max(lastSpeeds[i] - dt*maxAcceleration,-maxSpeed);
+                }
+                if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
+                if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
+                double newPower  = newSpeed/ maxSetSpeed;
+                if (Math.abs(newPower)<0.25)
+                    newPower = Math.signum(newPower)*0.25;
+                allMotors[i].setPower(newPower);
+                lastSpeeds[i] = newSpeed;
+            }
+            telemetry.addData("delta t","%.3f",dt);
+            telemetry.update();
+            robot.waitForTick(20);
+            remainingTicks = 0;
+            highestSpeed = 0.0;
+            for (int i=0; i<n; i++)
+            {
+                int dist = Math.abs(targets[i] - allMotors[i].getCurrentPosition());
+                if (remainingTicks < dist) remainingTicks = dist;
+                double speed = Math.abs(lastSpeeds[i]);
+                if (highestSpeed < speed) highestSpeed = speed;
+            }
+
+        }
+        for (int i=0; i<n; i++)
+        {
+            allMotors[i].setPower(0.0);
+        }
+    }
+
+    void TurnToHeading(double target)
+    {
+        int maxSetSpeed = 1120;
+        double maxSpeed = 800.0;
+        int maxAcceleration = 2000;
+        int maxDeceleration = 4000;
+        double multiplier = 20.0;
+        double dt = 0.020;
+
+        int n = allMotors.length;
+
+        double lastSpeed = 0.0;
+        double lastTime = timer.time()-dt;
+        double remainingAngle = diffHeading(target);
+        while (Math.abs(remainingAngle) > 0.5 || Math.abs(lastSpeed) > 2*dt*maxDeceleration)
+        {
+            double time = timer.time();
+            dt = time - lastTime;
+            lastTime = time;
+            double maxNewSpeed;
+            double minNewSpeed;
+
+            double newSpeed = multiplier * remainingAngle;
+            if (newSpeed > 0.0)
+            {
+                maxNewSpeed = Math.min(lastSpeed + dt*maxAcceleration,maxSpeed);
+                minNewSpeed = lastSpeed - dt*maxDeceleration;
+            }
+            else
+            {
+                maxNewSpeed = lastSpeed + dt*maxDeceleration;
+                minNewSpeed = Math.max(lastSpeed - dt*maxAcceleration,-maxSpeed);
+            }
+            if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
+            if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
+            double newPower  = newSpeed/ maxSetSpeed;
+            if (Math.abs(newPower)<0.25)
+                newPower = Math.signum(newPower)*0.25;
+            allMotors[0].setPower(-newPower);
+            allMotors[1].setPower(newPower);
+            lastSpeed = newSpeed;
+            robot.waitForTick(20);
+            remainingAngle = diffHeading(target);
+        }
+        for (int i=0; i<n; i++)
+        {
+            allMotors[i].setPower(0.0);
+        }
+    }
+
 
     void RunToEncoder(int ticks)
     {
