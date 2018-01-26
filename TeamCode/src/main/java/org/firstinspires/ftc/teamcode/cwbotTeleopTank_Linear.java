@@ -71,6 +71,30 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
     final double ticksPerCm = 1.0/0.02905;
     final double ticksPerInch = 2.54 * ticksPerCm;
 
+    final int DRIVE = 0;
+    final int GOTOHEADING = 1;
+    final int RIGHTWHEELPIVOT = 2;
+    final int LEFTWHEELPIVOT = 3;
+
+    int[] program1 =
+            {
+                    DRIVE, (int) (24.0*ticksPerInch),
+                    RIGHTWHEELPIVOT, -27,
+                    DRIVE, (int) (20.0*ticksPerInch),
+                    RIGHTWHEELPIVOT, 90
+            };
+
+//    After program1 we have readings: Front voltage 0.313, left voltage 0.528
+//      Measuring, we get front = 25 1/2", left = 42 3/4"
+//      The stone is not centered at 24", but instead at 23 5/16"
+
+    int[] program2 =
+            {
+                    DRIVE, (int) (24.0*ticksPerInch),
+                    RIGHTWHEELPIVOT, -27,
+                    DRIVE, (int) (20.0*ticksPerInch)
+            };
+
     @Override
     public void runOpMode() {
         /* Initialize the hardware variables.
@@ -83,7 +107,8 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
 
         DeviceInterfaceModule dim = hardwareMap.get(DeviceInterfaceModule.class, "DIM1");   //  Use generic form of device mapping
 //        AnalogInput ds = hardwareMap.get(AnalogInput.class, "Ultrasound");
-        AnalogInput ds = new AnalogInput(dim,7);
+        AnalogInput dsFront = new AnalogInput(dim,7);
+        AnalogInput dsLeft = new AnalogInput(dim,6);
 
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
         //parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
@@ -106,18 +131,20 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
-        double dsAverage = 0.0;
-
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
             if (gamepad1.right_bumper)
             {
-                TurnToHeading(90.0);
+                RunProgram(program1);
+//                PivotOnRightWheel(90.0);
+//                TurnToHeading(90.0);
 //                RunToEncoder2((int)(26.0*ticksPerInch));
             }
             if (gamepad1.left_bumper)
             {
-                TurnToHeading(0.0);
+                RunProgram(program2);
+//                PivotOnLeftWheel(90.0);
+//                TurnToHeading(0.0);
 //                RunToEncoder2(-(int)(26.0*ticksPerInch));
             }
 
@@ -142,17 +169,43 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
             Quaternion q = imu.getQuaternionOrientation();
             // The sonar only refreshes at 6.7 Hz.
             // We will average over 1 second to reduce noise.
-            double voltage = ds.getVoltage();
-            dsAverage = 0.96 * dsAverage + 0.04 * voltage;
+            double vFront = dsFront.getVoltage();
+            double vLeft = dsLeft.getVoltage();
             telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("heading", "%.1f",getHeading());
             telemetry.addData("Encoders","%d %d", encoderA,encoderB);
-            telemetry.addData("ds",  "%.3f", dsAverage);
+            telemetry.addData("ds",  "%.3f %.3f", vFront, vLeft);
             telemetry.update();
 
             // Pause for 40 mS each cycle = update 25 times a second.
             //sleep(40);
             robot.waitForTick(40);
+        }
+    }
+
+
+    void RunProgram(int[] prog)
+    {
+        int  nSteps = prog.length/2;
+        for (int iStep = 0; iStep<nSteps; iStep++)
+        {
+            int instruction = prog[2*iStep];
+            int data = prog[2*iStep+1];
+            switch (instruction)
+            {
+                case DRIVE:
+                    RunToEncoder2(data);
+                    break;
+                case GOTOHEADING:
+                    TurnToHeading((double) data);
+                    break;
+                case RIGHTWHEELPIVOT:
+                    PivotOnRightWheel((double) data);
+                    break;
+                case LEFTWHEELPIVOT:
+                    PivotOnLeftWheel((double) data);
+                    break;
+            }
         }
     }
 
@@ -202,7 +255,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         int remainingTicks = Math.abs(ticks);
         double highestSpeed = 0.0;
         double dt = 0.020;
-        while (remainingTicks > 6 || highestSpeed > 2*dt*maxDeceleration)
+        while (opModeIsActive() && (remainingTicks > 6 || highestSpeed > 2*dt*maxDeceleration))
         {
             double time = timer.time();
             dt = time - lastTime;
@@ -257,7 +310,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         double maxSpeed = 800.0;
         int maxAcceleration = 2000;
         int maxDeceleration = 4000;
-        double multiplier = 20.0;
+        double multiplier = 10.0;
         double dt = 0.020;
 
         int n = allMotors.length;
@@ -265,7 +318,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         double lastSpeed = 0.0;
         double lastTime = timer.time()-dt;
         double remainingAngle = diffHeading(target);
-        while (Math.abs(remainingAngle) > 0.5 || Math.abs(lastSpeed) > 2*dt*maxDeceleration)
+        while (opModeIsActive() && (Math.abs(remainingAngle) > 0.5 || Math.abs(lastSpeed) > dt*maxDeceleration))
         {
             double time = timer.time();
             dt = time - lastTime;
@@ -287,10 +340,116 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
             if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
             if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
             double newPower  = newSpeed/ maxSetSpeed;
-            if (Math.abs(newPower)<0.25)
-                newPower = Math.signum(newPower)*0.25;
+            if (Math.abs(newPower)<0.07)
+                newPower = Math.signum(newPower)*0.07;
             allMotors[0].setPower(-newPower);
             allMotors[1].setPower(newPower);
+            lastSpeed = newSpeed;
+            robot.waitForTick(20);
+            remainingAngle = diffHeading(target);
+        }
+        for (int i=0; i<n; i++)
+        {
+            allMotors[i].setPower(0.0);
+        }
+    }
+
+    void PivotOnLeftWheel(double target)
+    {
+        int maxSetSpeed = 1120;
+        double maxSpeed = 800.0;
+        int maxAcceleration = 2000;
+        int maxDeceleration = 4000;
+        double multiplier = 10.0;
+        double dt = 0.020;
+
+        int n = allMotors.length;
+        for (int i=0; i<n; i++)
+        {
+            allMotors[i].setPower(0.0);
+        }
+
+        double lastSpeed = 0.0;
+        double lastTime = timer.time()-dt;
+        double remainingAngle = diffHeading(target);
+        while (opModeIsActive() && (Math.abs(remainingAngle) > 0.5 || Math.abs(lastSpeed) > dt*maxDeceleration))
+        {
+            double time = timer.time();
+            dt = time - lastTime;
+            lastTime = time;
+            double maxNewSpeed;
+            double minNewSpeed;
+
+            double newSpeed = multiplier * remainingAngle;
+            if (newSpeed > 0.0)
+            {
+                maxNewSpeed = Math.min(lastSpeed + dt*maxAcceleration,maxSpeed);
+                minNewSpeed = lastSpeed - dt*maxDeceleration;
+            }
+            else
+            {
+                maxNewSpeed = lastSpeed + dt*maxDeceleration;
+                minNewSpeed = Math.max(lastSpeed - dt*maxAcceleration,-maxSpeed);
+            }
+            if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
+            if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
+            double newPower  = newSpeed/ maxSetSpeed;
+            if (Math.abs(newPower)<0.07)
+                newPower = Math.signum(newPower)*0.07;
+            allMotors[1].setPower(newPower);
+            lastSpeed = newSpeed;
+            robot.waitForTick(20);
+            remainingAngle = diffHeading(target);
+        }
+        for (int i=0; i<n; i++)
+        {
+            allMotors[i].setPower(0.0);
+        }
+    }
+
+    void PivotOnRightWheel(double target)
+    {
+        int maxSetSpeed = 1120;
+        double maxSpeed = 800.0;
+        int maxAcceleration = 2000;
+        int maxDeceleration = 4000;
+        double multiplier = 15.0;
+        double dt = 0.020;
+
+        int n = allMotors.length;
+        for (int i=0; i<n; i++)
+        {
+            allMotors[i].setPower(0.0);
+        }
+
+        double lastSpeed = 0.0;
+        double lastTime = timer.time()-dt;
+        double remainingAngle = diffHeading(target);
+        while (opModeIsActive() && (Math.abs(remainingAngle) > 0.5 || Math.abs(lastSpeed) > dt*maxDeceleration))
+        {
+            double time = timer.time();
+            dt = time - lastTime;
+            lastTime = time;
+            double maxNewSpeed;
+            double minNewSpeed;
+
+            double newSpeed = multiplier * remainingAngle;
+            if (newSpeed > 0.0)
+            {
+                maxNewSpeed = Math.min(lastSpeed + dt*maxAcceleration,maxSpeed);
+                minNewSpeed = lastSpeed - dt*maxDeceleration;
+            }
+            else
+            {
+                maxNewSpeed = lastSpeed + dt*maxDeceleration;
+                minNewSpeed = Math.max(lastSpeed - dt*maxAcceleration,-maxSpeed);
+            }
+            if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
+            if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
+            double newPower  = newSpeed/ maxSetSpeed;
+            if (Math.abs(newPower)<0.07)
+                newPower = Math.signum(newPower)*0.07;
+            allMotors[0].setPower(-newPower);
             lastSpeed = newSpeed;
             robot.waitForTick(20);
             remainingAngle = diffHeading(target);
