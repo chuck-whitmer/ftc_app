@@ -77,7 +77,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
     final int LEFTWHEELPIVOT = 3;
     final int CHECKIMU = 4;
 
-    int[] program1 =
+    int[] BlueNearProgram =
             {
                     DRIVE, (int) (24.0*ticksPerInch),
                     CHECKIMU, 0,
@@ -86,18 +86,28 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
                     RIGHTWHEELPIVOT, 90
             };
 
-//    After program1 we have readings: Front voltage 0.313, left voltage 0.528
+//    After BlueNearProgram we have readings: Front voltage 0.313, left voltage 0.528
 //      Measuring, we get front = 25 1/2", left = 42 3/4"
 //      The stone is not centered at 24", but instead at 23 5/16"
 
-    int[] program2 =
+    int[] BlueFarProgram =
             {
                     DRIVE, (int) (24.0*ticksPerInch),
                     CHECKIMU, 0,
                     LEFTWHEELPIVOT, 90
             };
+    int[] BlueFarMultiGlyph =
+            {
+                    DRIVE, (int) (-12.0 * ticksPerInch),
+                    RIGHTWHEELPIVOT, -75,
+                    DRIVE, (int) (29.0 * ticksPerInch),
+                    RIGHTWHEELPIVOT, 0,
+                    DRIVE, (int) (-9.0 * ticksPerInch),
+                    LEFTWHEELPIVOT, 90,
+                    DRIVE, (int) (-2.0 * ticksPerInch)
+            };
+
     BNO055IMU.Parameters parameters;
-    DeviceInterfaceModule dim;
 
     @Override
     public void runOpMode() {
@@ -109,11 +119,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         allMotors = new DcMotor[] {robot.leftRearMotor, robot.rightRearMotor};
         powerFactor = new double[] {1.0, 1.0};
 
-        dim = hardwareMap.get(DeviceInterfaceModule.class, "DIM1");   //  Use generic form of device mapping
-//        AnalogInput ds = hardwareMap.get(AnalogInput.class, "Ultrasound");
-        AnalogInput dsFront = new AnalogInput(dim,7);
-        AnalogInput dsLeft = new AnalogInput(dim,6);
-        double systemVoltage = dsFront.getMaxVoltage();
 
         parameters = new BNO055IMU.Parameters();
         parameters.accelRange = BNO055IMU.AccelRange.G16;
@@ -125,8 +130,8 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         //parameters.loggingTag          = "IMU";
         //parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
 
-        dim.setLED(1,false);
-        dim.setLED(0,false);
+        robot.setBlueLED(false);
+        robot.setRedLED(false);
 
         // Retrieve and initialize the IMU. We expect the IMU to be attached to an I2C port
         // on a Core Device Interface Module, configured to be a sensor of type "AdaFruit IMU",
@@ -145,11 +150,13 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         while (opModeIsActive()) {
             if (gamepad1.right_bumper)
             {
-                RunProgram(program1);
+                // Near Blue Autonomous
+                RunProgram(BlueNearProgram);
                 // Wait for ultrasound sensors to converge.
+                robot.resetTickPeriod();
                 robot.waitForTick(1500);
-                double frontDistance = dsFront.getVoltage()/systemVoltage*(1024.0/2.54); // inches
-                double leftDistance = dsLeft.getVoltage()/systemVoltage*(1024.0/2.54); // inches
+                double frontDistance = robot.getFrontDistance()/2.54; // inches
+                double leftDistance = robot.getLeftDistance()/2.54; // inches
                 // We expect about 25" in front. If it is significantly less, we assume that
                 // we are seeing the cryptobox columns, and therefore add 4".
 
@@ -160,7 +167,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
                 if (frontDistance > 30.0)
                 {
                     frontDistance = 25.0;
-                    dim.setLED(0,true);
+                    robot.setBlueLED(true);
                 }
                 if (frontDistance < 23.0) frontDistance += 4.0;
                 // Move up halfway to cryptobox.
@@ -168,7 +175,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
                 // Left sensor face is 8.0" from center of robot.
                 // The center of this cryptobox is assumed to be 60.0 - 1.5 inches.
                 int box = 0;
-                double boxCenterX = 58.5 - 8.0 + 7.625 * box;
+                double boxCenterX = 58.75 - 8.0 + 7.625 * box;
                 double deltaX = boxCenterX - leftDistance;
                 double distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
                 double heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
@@ -177,8 +184,9 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
                 RunToEncoder2(distance * ticksPerInch);
                 PivotOnRightWheel(90.0);
 
+                robot.resetTickPeriod();
                 robot.waitForTick(1500);
-                leftDistance = dsLeft.getVoltage()/systemVoltage*(1024.0/2.54); // inches
+                leftDistance = robot.getLeftDistance()/2.54; // inches
 
                 telemetry.addData("measure","left %.1f", leftDistance);
                 telemetry.update();
@@ -189,15 +197,20 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
                 {
                     deltaY -= WiggleWalk(deltaX,16.5,90.0);
 
+                    robot.resetTickPeriod();
                     robot.waitForTick(1500);
-                    leftDistance = dsLeft.getVoltage()/systemVoltage*(1024.0/2.54); // inches
+                    leftDistance = robot.getLeftDistance()/2.54; // inches
 
                     telemetry.addData("measure","left %.1f", leftDistance);
                     telemetry.update();
                     robot.waitForTick(4000);
                     deltaX = boxCenterX - leftDistance;
                     if (Math.abs(deltaX) > 0.5/2.54)
+                    {
+                        RunToEncoder2(-2.0 * ticksPerInch);
+                        deltaY += 2.0;
                         deltaY -= WiggleWalk(deltaX, 16.5, 90.0);
+                    }
                 }
 
 
@@ -207,68 +220,14 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
             }
             if (gamepad1.left_bumper)
             {
-                RunProgram(program2);
-                // Wait for ultrasound sensors to converge.
-                robot.waitForTick(1500);
-                double frontDistance = dsFront.getVoltage()/systemVoltage*(1024.0/2.54); // inches
-                double leftDistance = dsLeft.getVoltage()/systemVoltage*(1024.0/2.54); // inches
-                // We expect about 23" in front. If it is significantly less, we assume that
-                // we are seeing the cryptobox columns, and therefore add 4".
-                telemetry.addData("measure","front %.1f left %.1f", frontDistance, leftDistance);
-                telemetry.update();
-                robot.waitForTick(4000);
+                RunProgram(BlueFarProgram);
+                ParkBlueFar(34.25);
+                // Try MultiGlyph
+                robot.resetTickPeriod();
+                robot.waitForTick(1000);
 
-                if (frontDistance > 30.0)
-                {
-                    frontDistance = 23.0;
-                    dim.setLED(0,true);
-                }
-                if (frontDistance < 21.0) frontDistance += 4.0;
-                // Move up halfway to cryptobox.
-                double deltaY = (frontDistance - 4.0)/2.0;
-                // Left sensor face is 8.0" from center of robot.
-                // The center of this cryptobox is assumed to be 36.0 - 1.5 inches.
-                int box = 0;
-                double boxCenterX = 34.5 - 8.0 + 7.625 * box;
-                double deltaX = boxCenterX - leftDistance;
-                double distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
-                double heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
-
-//                telemetry.addData("Drive","%.1f %.1f %.1f %.1f", frontDistance, leftDistance, distance, heading);
-//                telemetry.update();
-
-                PivotOnLeftWheel(heading);
-                RunToEncoder2(distance * ticksPerInch);
-                PivotOnLeftWheel(90.0);
-
-                robot.waitForTick(1500);
-                leftDistance = dsLeft.getVoltage()/systemVoltage*(1024.0/2.54); // inches
-                telemetry.addData("measure","left %.1f", leftDistance);
-                telemetry.update();
-                robot.waitForTick(4000);
-
-                deltaX = boxCenterX - leftDistance;
-                if (Math.abs(deltaX) > 0.5/2.54)
-                {
-                    deltaY -= WiggleWalk(deltaX,16.5,90.0);
-
-                    robot.waitForTick(1500);
-                    leftDistance = dsLeft.getVoltage()/systemVoltage*(1024.0/2.54); // inches
-
-                    telemetry.addData("measure","left %.1f", leftDistance);
-                    telemetry.update();
-                    robot.waitForTick(4000);
-                    deltaX = boxCenterX - leftDistance;
-                    if (Math.abs(deltaX) > 0.5/2.54)
-                        deltaY -= WiggleWalk(deltaX, 16.5, 90.0);
-                }
-
-//                deltaX = boxCenterX - leftDistance;
-//                heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
-//               PivotOnRightWheel(heading);
-                RunToEncoder2(deltaY * ticksPerInch);
-
-
+                RunProgram(BlueFarMultiGlyph);
+                ParkBlueFar(34.5+7.63);
             }
 
             float x = gamepad1.right_stick_x;
@@ -292,18 +251,73 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
             Quaternion q = imu.getQuaternionOrientation();
             // The sonar only refreshes at 6.7 Hz.
             // We will average over 1 second to reduce noise.
-            double vFront = dsFront.getVoltage();
-            double vLeft = dsLeft.getVoltage();
+            double vFront = robot.getFrontDistance();
+            double vLeft = robot.getLeftDistance();
             telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("heading", "%.1f",getHeading());
             telemetry.addData("Encoders","%d %d", encoderA,encoderB);
-            telemetry.addData("ds",  "%.3f %.3f", vFront, vLeft);
+            telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
             telemetry.update();
 
             // Pause for 40 mS each cycle = update 25 times a second.
             //sleep(40);
             robot.waitForTick(40);
         }
+    }
+
+    void ParkBlueFar(double xTarget) // 34.5 for center
+    {
+        // Wait for ultrasound sensors to converge.
+        robot.resetTickPeriod();
+        robot.waitForTick(1500);
+        double frontDistance = robot.getFrontDistance()/2.54; // inches
+        double leftDistance = robot.getLeftDistance()/2.54; // inches
+
+//        telemetry.addData("measure","front %.1f left %.1f", frontDistance, leftDistance);
+//        telemetry.update();
+//        robot.waitForTick(2000);
+
+        // Move up halfway to cryptobox.
+        double deltaY = (frontDistance - 4.0)/2.0;
+        // Left sensor face is 8.0" from center of robot.
+        // The center of this cryptobox is assumed to be 36.0 - 1.5 inches.
+        double boxCenterX = xTarget - 8.0;
+        double deltaX = boxCenterX - leftDistance;
+        double distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+        double heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
+
+        PivotOnLeftWheel(heading);
+        RunToEncoder2(distance * ticksPerInch);
+        PivotOnLeftWheel(90.0);
+
+        robot.resetTickPeriod();
+        robot.waitForTick(1500);
+        leftDistance = robot.getLeftDistance()/2.54; // inches
+        deltaY += 2.0;
+//        telemetry.addData("measure","left %.1f", leftDistance);
+//        telemetry.update();
+//        robot.waitForTick(2000);
+
+        deltaX = boxCenterX - leftDistance;
+        if (Math.abs(deltaX) > 0.5/2.54)
+        {
+            deltaY -= WiggleWalk(deltaX,16.5,90.0);
+
+            robot.resetTickPeriod();
+            robot.waitForTick(1500);
+            leftDistance = robot.getLeftDistance()/2.54; // inches
+
+//            telemetry.addData("measure","left %.1f", leftDistance);
+//            telemetry.update();
+//            robot.waitForTick(2000);
+            deltaX = boxCenterX - leftDistance;
+            if (Math.abs(deltaX) > 0.5/2.54) {
+                RunToEncoder2(-2.0 * ticksPerInch);
+                deltaY += 2.0;
+                deltaY -= WiggleWalk(deltaX, 16.5, 90.0);
+            }
+        }
+        RunToEncoder2(deltaY * ticksPerInch);
     }
 
     double WiggleWalk(double deltaX, double wheelBase, double heading)
@@ -353,7 +367,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
                         telemetry.addData("Say","IMU died!!!");
                         telemetry.update();
                         imu.initialize(parameters);
-                        dim.setLED(1,true);
+                        robot.setRedLED(true);
                         robot.waitForTick(2000);
                     }
             }

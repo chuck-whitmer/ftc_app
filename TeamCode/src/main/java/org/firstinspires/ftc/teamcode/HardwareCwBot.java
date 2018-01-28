@@ -1,7 +1,9 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DeviceInterfaceModule;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -29,6 +31,11 @@ public class HardwareCwBot
     public DcMotor leftRearMotor = null;
     public Servo    phone       = null;
 
+    DeviceInterfaceModule dim;
+    AnalogInput dsFront;
+    AnalogInput dsLeft;
+    double systemVoltage;
+
     public static final double MID_SERVO       =  0.4 ;
 
     /* local OpMode members. */
@@ -44,6 +51,11 @@ public class HardwareCwBot
     public void init(HardwareMap ahwMap) {
         // Save reference to Hardware map
         hwMap = ahwMap;
+        dim = hwMap.get(DeviceInterfaceModule.class, "DIM1");   //  Use generic form of device mapping
+//        AnalogInput ds = hardwareMap.get(AnalogInput.class, "Ultrasound");
+        dsFront = new AnalogInput(dim,7);
+        dsLeft = new AnalogInput(dim,6);
+        systemVoltage = dsFront.getMaxVoltage();
 
         // Define and Initialize Motors
         rightRearMotor = hwMap.dcMotor.get("RightRear");
@@ -68,6 +80,31 @@ public class HardwareCwBot
         // Define and initialize ALL installed servos.
         phone = hwMap.servo.get("phone");
         phone.setPosition(MID_SERVO);
+    }
+
+    public double getFrontDistance() // in cm
+    {
+        return Math.round(dsFront.getVoltage()/systemVoltage*1024.0);
+    }
+
+    public double getLeftDistance() // in cm
+    {
+        return Math.round(dsLeft.getVoltage()/systemVoltage*1024.0);
+    }
+
+    public void setBlueLED(boolean on)
+    {
+        dim.setLED(0,on);
+    }
+
+    public void setRedLED(boolean on)
+    {
+        dim.setLED(1,on);
+    }
+
+    public void resetTickPeriod()
+    {
+        period.reset();
     }
 
     /***
