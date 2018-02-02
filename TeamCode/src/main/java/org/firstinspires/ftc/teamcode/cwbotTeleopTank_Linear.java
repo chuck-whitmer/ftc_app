@@ -68,7 +68,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
     double[] powerFactor;
     ElapsedTime timer = new ElapsedTime();
 
-    final double ticksPerCm = 1.0/0.02905;
+    final double ticksPerCm = 1.0/.02879; // 1.0/0.02905;
     final double ticksPerInch = 2.54 * ticksPerCm;
 
     final int DRIVE = 0;
@@ -94,7 +94,8 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
             {
                     DRIVE, (int) (24.0*ticksPerInch),
                     CHECKIMU, 0,
-                    LEFTWHEELPIVOT, 90
+                    LEFTWHEELPIVOT, 90,
+                    DRIVE, (int) (4.0 * ticksPerInch)
             };
     int[] BlueFarMultiGlyph =
             {
@@ -150,6 +151,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         while (opModeIsActive()) {
             if (gamepad1.right_bumper)
             {
+                /*
                 // Near Blue Autonomous
                 RunProgram(BlueNearProgram);
                 // Wait for ultrasound sensors to converge.
@@ -217,6 +219,8 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
 //                heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
 //                PivotOnRightWheel(heading);
                 RunToEncoder2(deltaY * ticksPerInch);
+                */
+                RunToEncoder2(2000);
             }
             if (gamepad1.left_bumper)
             {
@@ -273,9 +277,9 @@ public class cwbotTeleopTank_Linear extends LinearOpMode {
         double frontDistance = robot.getFrontDistance()/2.54; // inches
         double leftDistance = robot.getLeftDistance()/2.54; // inches
 
-//        telemetry.addData("measure","front %.1f left %.1f", frontDistance, leftDistance);
-//        telemetry.update();
-//        robot.waitForTick(2000);
+        telemetry.addData("measure","front %.1f left %.1f", frontDistance, leftDistance);
+        telemetry.update();
+        robot.waitForTick(2000);
 
         // Move up halfway to cryptobox.
         double deltaY = (frontDistance - 4.0)/2.0;
