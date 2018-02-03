@@ -32,6 +32,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
@@ -53,40 +54,11 @@ import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@TeleOp(name="cwbot: Telop Tank", group="cwbot")
-public class cwbotTeleopTank_Linear extends LinearOpMode
-{
+@TeleOp(name="cwbot: Telop IMU", group="cwbot")
+public class cwbotIMUTest extends LinearOpMode {
+
     /* Declare OpMode members. */
-    HardwareCwBot robot = new HardwareCwBot();
-
-    int[] BlueNearProgram =
-            {
-                    robot.DRIVE, (int) (24.0*robot.ticksPerInch),
-                    robot.CHECKIMU, 0,
-                    robot.RIGHTWHEELPIVOT, -27,
-                    robot.DRIVE, (int) (20.0*robot.ticksPerInch),
-                    robot.RIGHTWHEELPIVOT, 90
-            };
-
-    int[] BlueFarProgram =
-            {
-                    robot.DRIVE, (int) (24.0*robot.ticksPerInch),
-                    robot.CHECKIMU, 0,
-                    robot.LEFTWHEELPIVOT, 90,
-                    robot.DRIVE, (int) (3.5 * robot.ticksPerInch)
-            };
-
-    int[] BlueFarMultiGlyph =
-            {
-                    robot.DRIVE, (int) (-12.0 * robot.ticksPerInch),
-                    robot.RIGHTWHEELPIVOT, -75,
-                    robot.DRIVE, (int) (29.0 * robot.ticksPerInch),
-                    robot.RIGHTWHEELPIVOT, 0,
-                    robot.DRIVE, (int) (-9.0 * robot.ticksPerInch),
-                    robot.LEFTWHEELPIVOT, 90,
-                    robot.DRIVE, (int) (-2.0 * robot.ticksPerInch)
-            };
-
+    HardwareCwBot   robot           = new HardwareCwBot();              // Use a K9'shardware
 
     @Override
     public void runOpMode() {
@@ -94,9 +66,10 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
          * The init() method of the hardware class does all the work here
          */
         robot.init(hardwareMap);
+        // A B
 
         // Send telemetry message to signify robot waiting;
-        telemetry.addData("Say", "Hello Driver");    //
+        telemetry.addData("Say", "Hello IMU Driver");    //
         telemetry.update();
 
         // Wait for the game to start (driver presses PLAY)
@@ -106,19 +79,11 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         while (opModeIsActive()) {
             if (gamepad1.right_bumper)
             {
-                robot.RunProgram(BlueNearProgram, this);
-                ParkBlue(58.75);
+                robot.RunToEncoder2((int)(-2.0 * robot.ticksPerInch), this);
             }
             if (gamepad1.left_bumper)
             {
-                robot.RunProgram(BlueFarProgram, this);
-                ParkBlue(34.25);
-                // Try MultiGlyph
-                robot.resetTickPeriod();
-                robot.waitForTick(1000);
-
-                robot.RunProgram(BlueFarMultiGlyph, this);
-                ParkBlue(34.5+7.63);
+                robot.RunToEncoder2((int)(2.0 * robot.ticksPerInch), this);
             }
 
             float x = gamepad1.right_stick_x;
@@ -145,7 +110,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             double vFront = robot.getFrontDistance();
             double vLeft = robot.getLeftDistance();
             telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
-            telemetry.addData("heading", "%.1f",robot.getHeading());
+            telemetry.addData("heading", "%.1f", robot.getHeading());
             telemetry.addData("Encoders","%d %d", encoderA,encoderB);
             telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
             telemetry.update();
@@ -155,60 +120,4 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             robot.waitForTick(40);
         }
     }
-
-    void ParkBlue(double xTarget) // 34.5 for center
-    {
-        // Wait for ultrasound sensors to converge.
-        robot.resetTickPeriod();
-        robot.waitForTick(1500);
-        double frontDistance = robot.getFrontDistance()/2.54; // inches
-        double leftDistance = robot.getLeftDistance()/2.54; // inches
-
-        telemetry.addData("measure","front %.1f left %.1f", frontDistance, leftDistance);
-        telemetry.update();
-        robot.waitForTick(2000);
-
-        // Move up halfway to cryptobox.
-        double deltaY = (frontDistance - 4.0)/2.0;
-        // Left sensor face is 8.0" from center of robot.
-        // The center of this cryptobox is assumed to be 36.0 - 1.5 inches.
-        double boxCenterX = xTarget - 8.0;
-        double deltaX = boxCenterX - leftDistance;
-        double distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
-        double heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
-
-        robot.PivotOnLeftWheel(heading, this);
-        robot.RunToEncoder2((int)(distance * robot.ticksPerInch), this);
-        robot.PivotOnLeftWheel(90.0, this);
-
-        robot.resetTickPeriod();
-        robot.waitForTick(1500);
-        leftDistance = robot.getLeftDistance()/2.54; // inches
-        deltaY += 2.0;
-//        telemetry.addData("measure","left %.1f", leftDistance);
-//        telemetry.update();
-//        robot.waitForTick(2000);
-
-        deltaX = boxCenterX - leftDistance;
-        if (Math.abs(deltaX) > 0.5/2.54)
-        {
-            deltaY -= robot.WiggleWalk(deltaX*robot.ticksPerInch,90.0, this);
-
-            robot.resetTickPeriod();
-            robot.waitForTick(1500);
-            leftDistance = robot.getLeftDistance()/2.54; // inches
-
-//            telemetry.addData("measure","left %.1f", leftDistance);
-//            telemetry.update();
-//            robot.waitForTick(2000);
-            deltaX = boxCenterX - leftDistance;
-            if (Math.abs(deltaX) > 0.5/2.54) {
-                robot.RunToEncoder2((int)(-2.0 * robot.ticksPerInch), this);
-                deltaY += 2.0;
-                deltaY -= robot.WiggleWalk(deltaX*robot.ticksPerInch, 90.0, this);
-            }
-        }
-        robot.RunToEncoder2((int)(deltaY * robot.ticksPerInch), this);
-    }
-
 }
