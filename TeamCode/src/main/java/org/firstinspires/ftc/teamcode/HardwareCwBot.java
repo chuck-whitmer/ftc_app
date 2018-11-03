@@ -4,6 +4,7 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DeviceInterfaceModule;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -11,27 +12,13 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
 
-/**
- * This is NOT an opmode.
- *
- * This class can be used to define all the specific hardware for a single robot.
- * In this case that robot is a Pushbot.
- * See PushbotTeleopTank_Iterative and others classes starting with "Pushbot" for usage examples.
- *
- * This hardware class assumes the following device names have been configured on the robot:
- * Note:  All names are lower case and some have single spaces between words.
- *
- * Motor channel:  Left  drive motor:        "left_drive"
- * Motor channel:  Right drive motor:        "right_drive"
- * Motor channel:  Manipulator drive motor:  "left_arm"
- * Servo channel:  Servo to open left claw:  "left_hand"
- * Servo channel:  Servo to open right claw: "right_hand"
- */
 public class HardwareCwBot
 {
     /* Public OpMode members. */
-    public DcMotor rightRearMotor = null;
-    public DcMotor leftRearMotor = null;
+    public DcMotor backRight = null;
+    public DcMotor backLeft = null;
+    public DcMotor frontRight = null;
+    public DcMotor frontLeft = null;
     public Servo    phone       = null;
 
     DeviceInterfaceModule dim;
@@ -50,12 +37,31 @@ public class HardwareCwBot
     private ElapsedTime period  = new ElapsedTime();
 
     DcMotor[] allMotors;
+    static final int FL = 0;
+    static final int FR = 1;
+    static final int BL = 2;
+    static final int BR = 3;
+    double[] rotation;
     double[] powerFactor;
     ElapsedTime driveTimer = new ElapsedTime();
 
     /* Constructor */
     public HardwareCwBot()
     {}
+
+    public static final double ticksPerCm = 37.734; // 1.0/.02879 for Stealth // 1.0/0.02905 for Tetrix
+    public static final double ticksPerInch = 88.225; // = 2.54 * ticksPerCm;
+    public static final double wheelBase = 1455.7; // 16.5 * ticksPerInch;
+
+    public static int inches(double len)
+    {
+        return (int) Math.round(len * ticksPerInch);
+    }
+
+    public static int cms(double len)
+    {
+        return (int) Math.round(len * ticksPerCm);
+    }
 
     /* Initialize standard Hardware interfaces */
     public void init(HardwareMap ahwMap)
@@ -71,22 +77,26 @@ public class HardwareCwBot
         setRedLED(false);
 
         // Define and Initialize Motors
-        rightRearMotor = hwMap.dcMotor.get("RightRear");
-        leftRearMotor = hwMap.dcMotor.get("LeftRear");
-        allMotors = new DcMotor[] {leftRearMotor, rightRearMotor};
-        powerFactor = new double[] {1.0, 1.0};
-        rightRearMotor.setDirection(DcMotor.Direction.FORWARD); // Set to REVERSE if using AndyMark motors
-        leftRearMotor.setDirection(DcMotor.Direction.REVERSE); // Set to REVERSE if using AndyMark motors
+        backRight = hwMap.dcMotor.get("backRight");
+        backLeft = hwMap.dcMotor.get("backLeft");
+        frontRight = hwMap.dcMotor.get("frontRight");
+        frontLeft = hwMap.dcMotor.get("frontLeft");
 
-        // Set all motors to zero power
-        rightRearMotor.setPower(0.0);
-        leftRearMotor.setPower(0.0);
+        allMotors = new DcMotor[] {frontLeft, frontRight, backLeft, backRight};
+        rotation = new double[]{-1.0, 1.0, -1.0, 1.0};
+        powerFactor = new double[] {1.0, 1.0, 1.0, 1.0};
 
-        // Set all motors to run with encoders.
-        rightRearMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightRearMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        leftRearMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftRearMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontRight.setDirection(DcMotor.Direction.REVERSE);
+        frontLeft.setDirection(DcMotor.Direction.FORWARD);
+        backRight.setDirection(DcMotor.Direction.REVERSE);
+        backLeft.setDirection(DcMotor.Direction.FORWARD);
+
+        for (DcMotor m : allMotors)
+        {
+            m.setPower(0.0);
+            m.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        }
 
         // Define and initialize ALL installed servos.
         phone = hwMap.servo.get("phone");
@@ -95,46 +105,39 @@ public class HardwareCwBot
         imuParameters = new BNO055IMU.Parameters();
         imuParameters.accelRange = BNO055IMU.AccelRange.G16;
         imuParameters.gyroRange = BNO055IMU.GyroRange.DPS500;
-        //imuParameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
-        //imuParameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;gyr
-        //imuParameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
-        //imuParameters.loggingEnabled      = true;
-        //imuParameters.loggingTag          = "IMU";
-        //imuParameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
 
         // Retrieve and initialize the IMU. We expect the IMU to be attached to an I2C port
         // on a Core Device Interface Module, configured to be a sensor of type "AdaFruit IMU",
         // and named "imu".
-        imu = hwMap.get(BNO055IMU.class, "imu");
+        imu = hwMap.get(BNO055IMU.class, "IMU");
         imu.initialize(imuParameters);
     }
 
-    final double ticksPerCm = 37.734; // = 1.0/.02879; // 1.0/0.02905;
-    final double ticksPerInch = 88.225; // = 2.54 * ticksPerCm;
-    final double wheelBase =1455.7; // 16.5 * ticksPerInch;
-
-    double WiggleWalk(double deltaX, double heading, LinearOpMode caller)
+    public double[] getDrivePowersFromAngle(double angle) {
+        double[] unscaledPowers = new double[4];
+        unscaledPowers[0] = Math.sin(angle + Math.PI / 4);
+        unscaledPowers[1] = Math.cos(angle + Math.PI / 4);
+        unscaledPowers[2] = unscaledPowers[1];
+        unscaledPowers[3] = unscaledPowers[0];
+        return unscaledPowers;
+    }
+    double WiggleWalk(int transverseTicks, double heading, LinearOpMode caller)
     {
         double theta;
-        if (deltaX < 0.0)
+        if (transverseTicks < 0)
         {
-            theta = 180.0/Math.PI*Math.acos(1.0+deltaX/wheelBase);
+            theta = 180.0/Math.PI*Math.acos(1.0+transverseTicks/wheelBase);
             PivotOnLeftWheel(heading+theta, caller);
             PivotOnRightWheel(heading, caller);
         }
         else
         {
-            theta = 180.0/Math.PI*Math.acos(1.0-deltaX/wheelBase);
+            theta = 180.0/Math.PI*Math.acos(1.0-transverseTicks/wheelBase);
             PivotOnRightWheel(heading-theta, caller);
             PivotOnLeftWheel(heading, caller);
         }
         return wheelBase * Math.sin(Math.PI/180*theta);
     }
-
-//    void RunToEncoder2(double ticks, LinearOpMode caller)
-//    {
-//        RunToEncoder2((int)ticks, caller);
-//    }
 
     void RunToEncoder2(int ticks, LinearOpMode caller)
     {
@@ -145,9 +148,9 @@ public class HardwareCwBot
         double multiplier = 2.0;
         double deltaT = 0.020;
 
-        caller.telemetry.addData("Run2", "%d ticks", ticks);
-        caller.telemetry.update();
-        waitForTick(3000);
+        //caller.telemetry.addData("Run2", "%d ticks", ticks);
+        //caller.telemetry.update();
+        //waitForTick(3000);
 
         int n = allMotors.length;
         int[] targets = new int[n];
@@ -189,8 +192,8 @@ public class HardwareCwBot
                 allMotors[i].setPower(newPower);
                 lastSpeeds[i] = newSpeed;
             }
-            caller.telemetry.addData("remain", "%d", remainingTicks);
-            caller.telemetry.update();
+            //caller.telemetry.addData("remain", "%d", remainingTicks);
+            //caller.telemetry.update();
             waitForTick(20);
             remainingTicks = 0;
             highestSpeed = 0.0;
@@ -203,6 +206,100 @@ public class HardwareCwBot
             }
         }
         for (int i=0; i<n; i++)
+        {
+            allMotors[i].setPower(0.0);
+        }
+    }
+
+    void RunToEncoder3(int ticks, LinearOpMode caller)
+    {
+        int maxSetSpeed = 1120;
+        double maxSpeed = 800.0;
+        int maxAcceleration = 4000;
+        int maxDeceleration = 8000;
+        double multiplier = 1.0;
+        double deltaT = 0.020;
+
+        //caller.telemetry.addData("Run2", "%d ticks", ticks);
+        //caller.telemetry.update();
+        //waitForTick(3000);
+
+        int leftTarget = 
+                frontLeft.getCurrentPosition() + backLeft.getCurrentPosition() + 2*ticks;
+        int rightTarget =
+                frontRight.getCurrentPosition() + backRight.getCurrentPosition() + 2*ticks;
+        double lastLeftSpeed = 0.0;
+        double lastRightSpeed = 0.0;
+        double lastTime = driveTimer.time()-deltaT;
+        int remainingTicks = Math.abs(2*ticks);
+        double highestSpeed = 0.0;
+        double dt = 0.020;
+        while (caller.opModeIsActive() && (remainingTicks > 12 || highestSpeed > 2*dt*maxDeceleration))
+        {
+            double time = driveTimer.time();
+            dt = time - lastTime;
+            lastTime = time;
+            // Left
+            {
+                double maxNewSpeed;
+                double minNewSpeed;
+                int pos = frontLeft.getCurrentPosition() + backLeft.getCurrentPosition();
+                double newSpeed = multiplier * (leftTarget - pos);
+                if (newSpeed > 0.0)
+                {
+                    maxNewSpeed = Math.min(lastLeftSpeed + dt*maxAcceleration,maxSpeed);
+                    minNewSpeed = lastLeftSpeed - dt*maxDeceleration;
+                }
+                else
+                {
+                    maxNewSpeed = lastLeftSpeed + dt*maxDeceleration;
+                    minNewSpeed = Math.max(lastLeftSpeed - dt*maxAcceleration,-maxSpeed);
+                }
+                if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
+                if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
+                double newPower  = newSpeed/ maxSetSpeed;
+                if (Math.abs(newPower)<0.25)
+                    newPower = Math.signum(newPower)*0.25;
+                frontLeft.setPower(newPower);
+                backLeft.setPower(newPower);
+                lastLeftSpeed = newSpeed;
+            }
+            // Right
+            {
+                double maxNewSpeed;
+                double minNewSpeed;
+                int pos = frontRight.getCurrentPosition() + backRight.getCurrentPosition();
+                double newSpeed = multiplier * (rightTarget - pos);
+                if (newSpeed > 0.0)
+                {
+                    maxNewSpeed = Math.min(lastRightSpeed + dt*maxAcceleration,maxSpeed);
+                    minNewSpeed = lastRightSpeed - dt*maxDeceleration;
+                }
+                else
+                {
+                    maxNewSpeed = lastRightSpeed + dt*maxDeceleration;
+                    minNewSpeed = Math.max(lastRightSpeed - dt*maxAcceleration,-maxSpeed);
+                }
+                if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
+                if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
+                double newPower  = newSpeed/ maxSetSpeed;
+                if (Math.abs(newPower)<0.25)
+                    newPower = Math.signum(newPower)*0.25;
+                frontRight.setPower(newPower);
+                backRight.setPower(newPower);
+                lastRightSpeed = newSpeed;
+            }
+            //caller.telemetry.addData("remain", "%d", remainingTicks);
+            //caller.telemetry.update();
+            waitForTick(20);
+            int leftDist =
+                    leftTarget - frontLeft.getCurrentPosition() - backLeft.getCurrentPosition();
+            int rightDist =
+                    rightTarget - frontRight.getCurrentPosition() - backRight.getCurrentPosition();
+            remainingTicks = Math.max(Math.abs(leftDist),Math.abs(rightDist));
+            highestSpeed = Math.max(Math.abs(lastLeftSpeed),Math.abs(lastRightSpeed));
+        }
+        for (int i=0; i<allMotors.length; i++)
         {
             allMotors[i].setPower(0.0);
         }
@@ -246,13 +343,15 @@ public class HardwareCwBot
             double newPower  = newSpeed/ maxSetSpeed;
             if (Math.abs(newPower)<0.07)
                 newPower = Math.signum(newPower)*0.07;
-            allMotors[0].setPower(-newPower);
-            allMotors[1].setPower(newPower);
+            frontLeft.setPower(-newPower);
+            backLeft.setPower(-newPower);
+            frontRight.setPower(newPower);
+            backRight.setPower(newPower);
             lastSpeed = newSpeed;
             waitForTick(20);
             remainingAngle = diffHeading(target);
         }
-        for (int i=0; i<n; i++)
+        for (int i=0; i< allMotors.length; i++)
         {
             allMotors[i].setPower(0.0);
         }
@@ -421,7 +520,7 @@ public class HardwareCwBot
             switch (instruction)
             {
                 case DRIVE:
-                    RunToEncoder2(data, caller);
+                    RunToEncoder3(data, caller);
                     break;
                 case GOTOHEADING:
                     TurnToHeading((double) data, caller);

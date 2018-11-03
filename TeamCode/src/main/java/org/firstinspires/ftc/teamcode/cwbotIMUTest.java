@@ -29,36 +29,26 @@
 
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
 import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
 
-/**
- * This OpMode uses the common HardwareK9bot class to define the devices on the robot.
- * All device access is managed through the HardwareK9bot class. (See this class for device names)
- * The code is structured as a LinearOpMode
- *
- * This particular OpMode executes a basic Tank Drive Teleop for the K9 bot
- * It raises and lowers the arm using the Gampad Y and A buttons respectively.
- * It also opens and closes the claw slowly using the X and B buttons.
- *
- * Note: the configuration of the servos is such that
- * as the arm servo approaches 0, the arm position moves up (away from the floor).
- * Also, as the claw servo approaches 0, the claw opens up (drops the game element).
- *
- * Use Android Studios to Copy this Class, and Paste it into your team's code folder with a new name.
- * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
- */
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+
 
 @TeleOp(name="cwbot: Telop IMU", group="cwbot")
-public class cwbotIMUTest extends LinearOpMode {
+public class cwbotIMUTest extends LinearOpMode
+{
+    HardwareCwBot robot = new HardwareCwBot();
+    Quaternion[] quats;
+    Acceleration[] accels;
+    final int nn = 1000;
 
-    /* Declare OpMode members. */
-    HardwareCwBot   robot           = new HardwareCwBot();              // Use a K9'shardware
+
 
     @Override
     public void runOpMode() {
@@ -66,7 +56,11 @@ public class cwbotIMUTest extends LinearOpMode {
          * The init() method of the hardware class does all the work here
          */
         robot.init(hardwareMap);
-        // A B
+
+        quats = new Quaternion[nn];
+        accels = new Acceleration[nn];
+        int iWrite = 0;
+        int iTotal = 0;
 
         // Send telemetry message to signify robot waiting;
         telemetry.addData("Say", "Hello IMU Driver");    //
@@ -79,11 +73,11 @@ public class cwbotIMUTest extends LinearOpMode {
         while (opModeIsActive()) {
             if (gamepad1.right_bumper)
             {
-                robot.RunToEncoder2((int)(-2.0 * robot.ticksPerInch), this);
+                robot.RunToEncoder2(robot.inches(-2.0), this);
             }
             if (gamepad1.left_bumper)
             {
-                robot.RunToEncoder2((int)(2.0 * robot.ticksPerInch), this);
+                robot.RunToEncoder2(robot.inches(2.0), this);
             }
 
             float x = gamepad1.right_stick_x;
@@ -98,26 +92,53 @@ public class cwbotIMUTest extends LinearOpMode {
             float biggest = Math.max(Math.abs(a),Math.abs(b));
             if (biggest < 1.0f) biggest = 1.0f;
 
-            robot.rightRearMotor.setPower(b/biggest);
-            robot.leftRearMotor.setPower(a/biggest);
+            robot.backRight.setPower(b/biggest);
+            robot.backLeft.setPower(a/biggest);
 
-            int encoderA = robot.leftRearMotor.getCurrentPosition();
-            int encoderB = robot.rightRearMotor.getCurrentPosition();
+            int encoderA = robot.backLeft.getCurrentPosition();
+            int encoderB = robot.backRight.getCurrentPosition();
 
             Quaternion q = robot.imu.getQuaternionOrientation();
-            // The sonar only refreshes at 6.7 Hz.
-            // We will average over 1 second to reduce noise.
-            double vFront = robot.getFrontDistance();
-            double vLeft = robot.getLeftDistance();
-            telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
-            telemetry.addData("heading", "%.1f", robot.getHeading());
-            telemetry.addData("Encoders","%d %d", encoderA,encoderB);
-            telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
-            telemetry.update();
+            Acceleration acc = robot.imu.getOverallAcceleration();
 
-            // Pause for 40 mS each cycle = update 25 times a second.
-            //sleep(40);
-            robot.waitForTick(40);
+
+
+
+
+            quats[iWrite] = q;
+            accels[iWrite] = acc;
+            iTotal++;
+            iWrite++;
+            if (iWrite >= nn) iWrite = 0;
+
+            robot.waitForTick(10);
         }
+
+
+        try
+        {
+            FileWriter fw = new FileWriter("/sdcard/FIRST/mylog.txt");
+            PrintWriter pw = new PrintWriter(fw);
+
+            int n = Math.min(iTotal,nn);
+            for (int i=0; i<n; i++)
+            {
+                Quaternion q = quats[i];
+                Acceleration acc = accels[i];
+
+                pw.printf("Q: %d %.5f %.5f %.5f %.5f A: %d %.6f %.6f %.6f\r\n",q.acquisitionTime,q.w,q.x,q.y,q.z,acc.acquisitionTime,acc.xAccel,acc.yAccel,acc.zAccel );
+            }
+            pw.flush();
+            pw.close();
+            fw.close();
+        }
+        catch (IOException e)
+        {
+            telemetry.addData("Say","File write failure");
+            telemetry.update();
+            robot.waitForTick(3000);
+        }
+
+
     }
 }

@@ -29,10 +29,10 @@
 
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.hardware.bosch.BNO055IMU;
+import com.disnodeteam.dogecv.OpenCVLoader;
+import com.disnodeteam.dogecv.OpenCVPipeline;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
 
@@ -59,33 +59,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
     /* Declare OpMode members. */
     HardwareCwBot robot = new HardwareCwBot();
 
-    int[] BlueNearProgram =
-            {
-                    robot.DRIVE, (int) (24.0*robot.ticksPerInch),
-                    robot.CHECKIMU, 0,
-                    robot.RIGHTWHEELPIVOT, -27,
-                    robot.DRIVE, (int) (20.0*robot.ticksPerInch),
-                    robot.RIGHTWHEELPIVOT, 90
-            };
-
-    int[] BlueFarProgram =
-            {
-                    robot.DRIVE, (int) (24.0*robot.ticksPerInch),
-                    robot.CHECKIMU, 0,
-                    robot.LEFTWHEELPIVOT, 90,
-                    robot.DRIVE, (int) (3.5 * robot.ticksPerInch)
-            };
-
-    int[] BlueFarMultiGlyph =
-            {
-                    robot.DRIVE, (int) (-12.0 * robot.ticksPerInch),
-                    robot.RIGHTWHEELPIVOT, -75,
-                    robot.DRIVE, (int) (29.0 * robot.ticksPerInch),
-                    robot.RIGHTWHEELPIVOT, 0,
-                    robot.DRIVE, (int) (-9.0 * robot.ticksPerInch),
-                    robot.LEFTWHEELPIVOT, 90,
-                    robot.DRIVE, (int) (-2.0 * robot.ticksPerInch)
-            };
 
 
     @Override
@@ -99,45 +72,32 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         telemetry.addData("Say", "Hello Driver");    //
         telemetry.update();
 
-        // Wait for the game to start (driver presses PLAY)
+        // Wait for the game to start (drive r presses PLAY)
         waitForStart();
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
-            if (gamepad1.right_bumper)
+            //robot.backRight.setPower(gamepad1.right_bumper ? 1.0 : 0.0);
+            //robot.backLeft.setPower(gamepad1.left_bumper ? 1.0 : 0.0);
+
+
+            float x = gamepad1.left_stick_x;
+            float y = -gamepad1.left_stick_y; // Negate to get +y forward.
+            float rotation = -gamepad1.right_stick_x;
+            float speed = 0.5f*(1.0f + gamepad1.left_trigger);
+
+            double angle = Math.atan2(y,-x) - Math.PI/2.0;
+            float scale = Math.max(Math.abs(x),Math.abs(y));
+
+            double[] powers = robot.getDrivePowersFromAngle(angle);
+            for (int i=0; i<robot.allMotors.length; i++)
             {
-                robot.RunProgram(BlueNearProgram, this);
-                ParkBlue(58.75);
-            }
-            if (gamepad1.left_bumper)
-            {
-                robot.RunProgram(BlueFarProgram, this);
-                ParkBlue(34.25);
-                // Try MultiGlyph
-                robot.resetTickPeriod();
-                robot.waitForTick(1000);
-
-                robot.RunProgram(BlueFarMultiGlyph, this);
-                ParkBlue(34.5+7.63);
+                robot.allMotors[i].setPower(
+                        speed*(powers[i]*scale + robot.rotation[i] * rotation));
             }
 
-            float x = gamepad1.right_stick_x;
-            float y = -gamepad1.right_stick_y; // Negate to get +y forward.
-            float rotation = gamepad1.left_stick_x;
-
-            // A B
-
-            float b = y - rotation;
-            float a = y + rotation;
-
-            float biggest = Math.max(Math.abs(a),Math.abs(b));
-            if (biggest < 1.0f) biggest = 1.0f;
-
-            robot.rightRearMotor.setPower(b/biggest);
-            robot.leftRearMotor.setPower(a/biggest);
-
-            int encoderA = robot.leftRearMotor.getCurrentPosition();
-            int encoderB = robot.rightRearMotor.getCurrentPosition();
+            int encoderA = robot.backLeft.getCurrentPosition();
+            int encoderB = robot.backRight.getCurrentPosition();
 
             Quaternion q = robot.imu.getQuaternionOrientation();
             // The sonar only refreshes at 6.7 Hz.
@@ -158,15 +118,27 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void ParkBlue(double xTarget) // 34.5 for center
     {
+        int sonarTicks = 700;
+
         // Wait for ultrasound sensors to converge.
         robot.resetTickPeriod();
-        robot.waitForTick(1500);
+        robot.waitForTick(sonarTicks);
         double frontDistance = robot.getFrontDistance()/2.54; // inches
         double leftDistance = robot.getLeftDistance()/2.54; // inches
 
-        telemetry.addData("measure","front %.1f left %.1f", frontDistance, leftDistance);
-        telemetry.update();
-        robot.waitForTick(2000);
+        if (leftDistance < 13.0)
+        {
+            robot.WiggleWalk(robot.inches(3.0),90.0, this);
+            robot.resetTickPeriod();
+            robot.waitForTick(sonarTicks);
+            frontDistance = robot.getFrontDistance()/2.54; // inches
+            leftDistance = robot.getLeftDistance()/2.54; // inches
+            if (leftDistance < 13.0) return;
+        }
+
+        //telemetry.addData("measure","front %.1f left %.1f", frontDistance, leftDistance);
+        //telemetry.update();
+        //robot.waitForTick(2000);
 
         // Move up halfway to cryptobox.
         double deltaY = (frontDistance - 4.0)/2.0;
@@ -178,11 +150,11 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         double heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
 
         robot.PivotOnLeftWheel(heading, this);
-        robot.RunToEncoder2((int)(distance * robot.ticksPerInch), this);
+        robot.RunToEncoder2(robot.inches(distance), this);
         robot.PivotOnLeftWheel(90.0, this);
 
         robot.resetTickPeriod();
-        robot.waitForTick(1500);
+        robot.waitForTick(sonarTicks);
         leftDistance = robot.getLeftDistance()/2.54; // inches
         deltaY += 2.0;
 //        telemetry.addData("measure","left %.1f", leftDistance);
@@ -192,10 +164,11 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         deltaX = boxCenterX - leftDistance;
         if (Math.abs(deltaX) > 0.5/2.54)
         {
-            deltaY -= robot.WiggleWalk(deltaX*robot.ticksPerInch,90.0, this);
+            deltaY -= robot.WiggleWalk(robot.inches(deltaX),90.0, this)
+                    / robot.ticksPerInch;
 
             robot.resetTickPeriod();
-            robot.waitForTick(1500);
+            robot.waitForTick(sonarTicks);
             leftDistance = robot.getLeftDistance()/2.54; // inches
 
 //            telemetry.addData("measure","left %.1f", leftDistance);
@@ -203,12 +176,12 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 //            robot.waitForTick(2000);
             deltaX = boxCenterX - leftDistance;
             if (Math.abs(deltaX) > 0.5/2.54) {
-                robot.RunToEncoder2((int)(-2.0 * robot.ticksPerInch), this);
+                robot.RunToEncoder2(robot.inches(-2.0), this);
                 deltaY += 2.0;
-                deltaY -= robot.WiggleWalk(deltaX*robot.ticksPerInch, 90.0, this);
+                deltaY -= robot.WiggleWalk(robot.inches(deltaX), 90.0, this)
+                        / robot.ticksPerInch;
             }
         }
-        robot.RunToEncoder2((int)(deltaY * robot.ticksPerInch), this);
+        robot.RunToEncoder2(robot.inches(deltaY), this);
     }
-
 }
