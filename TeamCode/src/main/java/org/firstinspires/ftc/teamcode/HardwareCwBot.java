@@ -1,10 +1,11 @@
 package org.firstinspires.ftc.teamcode;
 
+import android.util.Log;
+
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DeviceInterfaceModule;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -41,7 +42,7 @@ public class HardwareCwBot
     static final int FR = 1;
     static final int BL = 2;
     static final int BR = 3;
-    double[] rotation;
+    double[] rotationArray;
     double[] powerFactor;
     ElapsedTime driveTimer = new ElapsedTime();
 
@@ -49,8 +50,14 @@ public class HardwareCwBot
     public HardwareCwBot()
     {}
 
-    public static final double ticksPerCm = 37.734; // 1.0/.02879 for Stealth // 1.0/0.02905 for Tetrix
-    public static final double ticksPerInch = 88.225; // = 2.54 * ticksPerCm;
+    // 4" Tetrix wheels
+    //public static final double ticksPerCm = 37.734; // 1.0/.02879 for Stealth // 1.0/0.02905 for Tetrix
+    //public static final double ticksPerInch = 88.225; // = 2.54 * ticksPerCm;
+    //public static final double wheelBase = 1455.7; // 16.5 * ticksPerInch;
+
+    // Mecanum wheels - Neverest Orbital 20
+    public static final double ticksPerCm = 17.29;
+    public static final double ticksPerInch = 43.9; // = 2.54 * ticksPerCm;
     public static final double wheelBase = 1455.7; // 16.5 * ticksPerInch;
 
     public static int inches(double len)
@@ -66,6 +73,8 @@ public class HardwareCwBot
     /* Initialize standard Hardware interfaces */
     public void init(HardwareMap ahwMap)
     {
+        Log.i("robot.init","init");
+
         // Save reference to Hardware map
         hwMap = ahwMap;
         dim = hwMap.get(DeviceInterfaceModule.class, "DIM1");   //  Use generic form of device mapping
@@ -83,7 +92,7 @@ public class HardwareCwBot
         frontLeft = hwMap.dcMotor.get("frontLeft");
 
         allMotors = new DcMotor[] {frontLeft, frontRight, backLeft, backRight};
-        rotation = new double[]{-1.0, 1.0, -1.0, 1.0};
+        rotationArray = new double[]{-1.0, 1.0, -1.0, 1.0};
         powerFactor = new double[] {1.0, 1.0, 1.0, 1.0};
 
         frontRight.setDirection(DcMotor.Direction.REVERSE);
@@ -94,6 +103,7 @@ public class HardwareCwBot
         for (DcMotor m : allMotors)
         {
             m.setPower(0.0);
+            m.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             m.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
@@ -121,6 +131,65 @@ public class HardwareCwBot
         unscaledPowers[3] = unscaledPowers[0];
         return unscaledPowers;
     }
+
+    void DriveByPid(int ticks, LinearOpMode caller)
+    {
+        int timeStep = 20; // 20 msec
+        double P = 0.0;
+        double I = 0.0;
+        double D = 0.0;
+
+        // Experiment: Accelerate with a power ramp of 1.0 per second for 0.5 seconds,
+        // then decelerate at the same rate. We travel 639 ticks.
+        // => 2*(1/2*a*t^2) = 639 ticks.  a = 2556 ticks/sec/sec
+        // Same experiment with same ramp rate for 1.0 seconds up and 1.0
+        // seconds down gives a = 2542 ticks/sec/sec
+        double fullPowerSpeed = 2548.0; // Ticks per second with power=1.0
+        double acc = fullPowerSpeed; // Since we are happy to get there in 1 sec.
+        // So ramp at fullPowerSpeed/sec, but max out the speed at 0.9 power, so we
+        // have room to adjust upward.
+        double rampUpDownDist = 2.0*(0.5*acc*0.9*0.9); // about 48 inches
+        double t1;
+        double t2;
+        double t3;
+        if (ticks < rampUpDownDist)
+        {
+            t1 = Math.sqrt(ticks/acc);
+            t2 = t1;
+            t3 = 2.0*t1;
+        }
+        else
+        {
+            t1 = 0.9;
+            t2 = (ticks-rampUpDownDist)/(0.9*fullPowerSpeed) + t1;
+            t3 = t2 + 0.9;
+        }
+        // Now we have a model of where we should be at any time.
+        // for t<t1:  d = 0.5*acc*t^2
+        // for t1<t<t2:  d = rampUpDownDist/2 + (t-t1)*0.9*fullPowerSpeed
+        // for t>t2: d = rampUpDownDist/2 + (t-t1)*0.9*fullPowerSpeed
+        //                  -0.5*acc*(t-t2)^2
+
+        int pos0 = AverageEncoders();
+        double startTime = driveTimer.time();
+        while (caller.opModeIsActive() && driveTimer.time()-startTime < t3)
+        {
+
+        }
+        Log.i("tag", "msg");
+
+
+
+    }
+
+    int AverageEncoders()
+    {
+        int sum = 0;
+        for (DcMotor m : allMotors)
+            sum += m.getCurrentPosition();
+        return sum/4;
+    }
+
     double WiggleWalk(int transverseTicks, double heading, LinearOpMode caller)
     {
         double theta;
@@ -211,13 +280,72 @@ public class HardwareCwBot
         }
     }
 
+    void TestRun1(double rampTime, double maxPower, LinearOpMode caller)
+    {
+        double deltaT = 0.020;
+        double t;
+        double startTime = driveTimer.time();
+        while (caller.opModeIsActive() && (t=driveTimer.time()-startTime)<rampTime)
+        {
+            String msg = String.format("drive: %7.3f %6d %6d %6d %6d",
+                    t,
+                    allMotors[0].getCurrentPosition(),
+                    allMotors[1].getCurrentPosition(),
+                    allMotors[2].getCurrentPosition(),
+                    allMotors[3].getCurrentPosition()
+                    );
+            Log.i("foo",msg);
+
+
+            double power = t/rampTime*maxPower;
+            for (int i=0; i<allMotors.length; i++)
+            {
+                allMotors[i].setPower(power);
+            }
+
+
+
+
+            waitForTick(20);
+        }
+        while (caller.opModeIsActive() && (t=driveTimer.time()-startTime)<2.0*rampTime)
+        {
+            String msg = String.format("drive: %7.3f %6d %6d %6d %6d",
+                    t,
+                    allMotors[0].getCurrentPosition(),
+                    allMotors[1].getCurrentPosition(),
+                    allMotors[2].getCurrentPosition(),
+                    allMotors[3].getCurrentPosition()
+            );
+            Log.i("foo",msg);
+            double power = (2.0-t/rampTime)*maxPower;
+            for (int i=0; i<allMotors.length; i++)
+            {
+                allMotors[i].setPower(power);
+            }
+            waitForTick(20);
+        }
+        for (int i=0; i<allMotors.length; i++)
+        {
+            allMotors[i].setPower(0.0);
+        }
+        String msg = String.format("drive: %7.3f %6d %6d %6d %6d",
+                driveTimer.time()-startTime,
+                allMotors[0].getCurrentPosition(),
+                allMotors[1].getCurrentPosition(),
+                allMotors[2].getCurrentPosition(),
+                allMotors[3].getCurrentPosition()
+        );
+        Log.i("foo",msg);
+    }
+
     void RunToEncoder3(int ticks, LinearOpMode caller)
     {
         int maxSetSpeed = 1120;
-        double maxSpeed = 800.0;
-        int maxAcceleration = 4000;
-        int maxDeceleration = 8000;
-        double multiplier = 1.0;
+        double maxSpeed = 400.0;   // was 800
+        int maxAcceleration = 1000;  // was 4000
+        int maxDeceleration = 2000;  // was 8000
+        double multiplier = 0.10;
         double deltaT = 0.020;
 
         //caller.telemetry.addData("Run2", "%d ticks", ticks);

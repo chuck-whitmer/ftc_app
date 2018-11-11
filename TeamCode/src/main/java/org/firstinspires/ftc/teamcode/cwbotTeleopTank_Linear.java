@@ -29,8 +29,6 @@
 
 package org.firstinspires.ftc.teamcode;
 
-import com.disnodeteam.dogecv.OpenCVLoader;
-import com.disnodeteam.dogecv.OpenCVPipeline;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -53,7 +51,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@TeleOp(name="cwbot: Telop Tank", group="cwbot")
+@TeleOp(name="cwbot: Teleop Drive", group="cwbot")
 public class cwbotTeleopTank_Linear extends LinearOpMode
 {
     /* Declare OpMode members. */
@@ -84,20 +82,41 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             float x = gamepad1.left_stick_x;
             float y = -gamepad1.left_stick_y; // Negate to get +y forward.
             float rotation = -gamepad1.right_stick_x;
-            float speed = 0.5f*(1.0f + gamepad1.left_trigger);
+            float speedControl = 0.5f*(1.0f + gamepad1.left_trigger);
+            double biggestControl = Math.sqrt(x*x+y*y);
+            double biggestWithRotation = Math.sqrt(x*x+y*y+rotation*rotation);
 
             double angle = Math.atan2(y,-x) - Math.PI/2.0;
-            float scale = Math.max(Math.abs(x),Math.abs(y));
 
             double[] powers = robot.getDrivePowersFromAngle(angle);
+            double pow2 = 0.0;
             for (int i=0; i<robot.allMotors.length; i++)
             {
-                robot.allMotors[i].setPower(
-                        speed*(powers[i]*scale + robot.rotation[i] * rotation));
+                double pow = powers[i]*biggestControl + rotation * robot.rotationArray[i];
+                powers[i] = pow;
+                pow2 += pow*pow;
             }
 
-            int encoderA = robot.backLeft.getCurrentPosition();
-            int encoderB = robot.backRight.getCurrentPosition();
+            if (biggestWithRotation != 0.0) {
+                double scale = Math.sqrt(pow2);
+                for (int i = 0; i < robot.allMotors.length; i++) {
+                    robot.allMotors[i].setPower(
+                            powers[i]/scale*biggestWithRotation*speedControl);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < robot.allMotors.length; i++)
+                    robot.allMotors[i].setPower(0.0);
+            }
+
+            if (gamepad1.right_bumper)
+                TestAuto();
+
+            int encoderA = robot.frontLeft.getCurrentPosition();
+            int encoderB = robot.backLeft.getCurrentPosition();
+            int encoderC = robot.frontRight.getCurrentPosition();
+            int encoderD = robot.backRight.getCurrentPosition();
 
             Quaternion q = robot.imu.getQuaternionOrientation();
             // The sonar only refreshes at 6.7 Hz.
@@ -106,7 +125,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             double vLeft = robot.getLeftDistance();
             telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("heading", "%.1f",robot.getHeading());
-            telemetry.addData("Encoders","%d %d", encoderA,encoderB);
+            telemetry.addData("Encoders","%6d %6d %6d %6d", encoderA,encoderB,encoderC,encoderD);
             telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
             telemetry.update();
 
@@ -114,6 +133,12 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             //sleep(40);
             robot.waitForTick(40);
         }
+    }
+
+    void TestAuto()
+    {
+        robot.TestRun1(1.0, 1.0, this);
+        //robot.RunToEncoder3(HardwareCwBot.inches(6.0),this);
     }
 
     void ParkBlue(double xTarget) // 34.5 for center
@@ -128,7 +153,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
         if (leftDistance < 13.0)
         {
-            robot.WiggleWalk(robot.inches(3.0),90.0, this);
+            robot.WiggleWalk(HardwareCwBot.inches(3.0),90.0, this);
             robot.resetTickPeriod();
             robot.waitForTick(sonarTicks);
             frontDistance = robot.getFrontDistance()/2.54; // inches
@@ -150,7 +175,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         double heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
 
         robot.PivotOnLeftWheel(heading, this);
-        robot.RunToEncoder2(robot.inches(distance), this);
+        robot.RunToEncoder2(HardwareCwBot.inches(distance), this);
         robot.PivotOnLeftWheel(90.0, this);
 
         robot.resetTickPeriod();
