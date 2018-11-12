@@ -137,8 +137,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAuto()
     {
-        robot.TestRun1(1.0, 1.0, this);
-        //robot.RunToEncoder3(HardwareCwBot.inches(6.0),this);
+        robot.TestRun1(0.1, 1.5, 0.5, this);
     }
 
     void ParkBlue(double xTarget) // 34.5 for center

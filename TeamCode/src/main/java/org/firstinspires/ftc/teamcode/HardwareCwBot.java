@@ -280,63 +280,53 @@ public class HardwareCwBot
         }
     }
 
-    void TestRun1(double rampTime, double maxPower, LinearOpMode caller)
+    void TestRun1(double rampTime, double runTime, double maxPower, LinearOpMode caller)
     {
-        double deltaT = 0.020;
-        double t;
+        long timeStep = 50;  // 50 msec cycles
+        double deltaT = timeStep / 1000.0;
+        double endTime = 2.0 * rampTime + runTime;
+        double t=0.0;
         double startTime = driveTimer.time();
-        while (caller.opModeIsActive() && (t=driveTimer.time()-startTime)<rampTime)
+        while (caller.opModeIsActive() && (t=driveTimer.time()-startTime)<endTime+0.4)
         {
-            String msg = String.format("drive: %7.3f %6d %6d %6d %6d",
-                    t,
-                    allMotors[0].getCurrentPosition(),
-                    allMotors[1].getCurrentPosition(),
-                    allMotors[2].getCurrentPosition(),
-                    allMotors[3].getCurrentPosition()
-                    );
-            Log.i("foo",msg);
-
-
-            double power = t/rampTime*maxPower;
+            logEncoders(t);
+            double f0 = ramp(rampTime,runTime,t);
+            double f1 = ramp(rampTime,runTime,t+deltaT);
+            double power = 0.5*(f0+f1)*maxPower;
             for (int i=0; i<allMotors.length; i++)
             {
                 allMotors[i].setPower(power);
             }
-
-
-
-
-            waitForTick(20);
-        }
-        while (caller.opModeIsActive() && (t=driveTimer.time()-startTime)<2.0*rampTime)
-        {
-            String msg = String.format("drive: %7.3f %6d %6d %6d %6d",
-                    t,
-                    allMotors[0].getCurrentPosition(),
-                    allMotors[1].getCurrentPosition(),
-                    allMotors[2].getCurrentPosition(),
-                    allMotors[3].getCurrentPosition()
-            );
-            Log.i("foo",msg);
-            double power = (2.0-t/rampTime)*maxPower;
-            for (int i=0; i<allMotors.length; i++)
-            {
-                allMotors[i].setPower(power);
-            }
-            waitForTick(20);
+            waitForTick(timeStep);
         }
         for (int i=0; i<allMotors.length; i++)
-        {
             allMotors[i].setPower(0.0);
-        }
+        logEncoders(t);
+    }
+
+    void logEncoders(double t)
+    {
         String msg = String.format("drive: %7.3f %6d %6d %6d %6d",
-                driveTimer.time()-startTime,
+                t,
                 allMotors[0].getCurrentPosition(),
                 allMotors[1].getCurrentPosition(),
                 allMotors[2].getCurrentPosition(),
                 allMotors[3].getCurrentPosition()
         );
         Log.i("foo",msg);
+    }
+
+    double ramp(double rampTime, double runTime, double t)
+    {
+        double endTime = 2.0*rampTime + runTime;
+        if (t < 0.0 || t > endTime)
+            return 0.0;
+        if (t < rampTime)
+            return t/rampTime;
+        else if (t < rampTime + runTime)
+            return 1.0;
+        else
+            return (endTime - t)/ rampTime;
     }
 
     void RunToEncoder3(int ticks, LinearOpMode caller)
