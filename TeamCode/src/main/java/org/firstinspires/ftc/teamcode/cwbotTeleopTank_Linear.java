@@ -72,6 +72,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
         // Wait for the game to start (drive r presses PLAY)
         waitForStart();
+        robot.resetTickPeriod();
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
@@ -137,75 +138,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAuto()
     {
-        robot.TestRun1(0.1, 1.5, 0.5, this);
-    }
-
-    void ParkBlue(double xTarget) // 34.5 for center
-    {
-        int sonarTicks = 700;
-
-        // Wait for ultrasound sensors to converge.
-        robot.resetTickPeriod();
-        robot.waitForTick(sonarTicks);
-        double frontDistance = robot.getFrontDistance()/2.54; // inches
-        double leftDistance = robot.getLeftDistance()/2.54; // inches
-
-        if (leftDistance < 13.0)
-        {
-            robot.WiggleWalk(HardwareCwBot.inches(3.0),90.0, this);
-            robot.resetTickPeriod();
-            robot.waitForTick(sonarTicks);
-            frontDistance = robot.getFrontDistance()/2.54; // inches
-            leftDistance = robot.getLeftDistance()/2.54; // inches
-            if (leftDistance < 13.0) return;
-        }
-
-        //telemetry.addData("measure","front %.1f left %.1f", frontDistance, leftDistance);
-        //telemetry.update();
-        //robot.waitForTick(2000);
-
-        // Move up halfway to cryptobox.
-        double deltaY = (frontDistance - 4.0)/2.0;
-        // Left sensor face is 8.0" from center of robot.
-        // The center of this cryptobox is assumed to be 36.0 - 1.5 inches.
-        double boxCenterX = xTarget - 8.0;
-        double deltaX = boxCenterX - leftDistance;
-        double distance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
-        double heading = (180.0/Math.PI) * Math.atan2(deltaY, deltaX);
-
-        robot.PivotOnLeftWheel(heading, this);
-        robot.RunToEncoder2(HardwareCwBot.inches(distance), this);
-        robot.PivotOnLeftWheel(90.0, this);
-
-        robot.resetTickPeriod();
-        robot.waitForTick(sonarTicks);
-        leftDistance = robot.getLeftDistance()/2.54; // inches
-        deltaY += 2.0;
-//        telemetry.addData("measure","left %.1f", leftDistance);
-//        telemetry.update();
-//        robot.waitForTick(2000);
-
-        deltaX = boxCenterX - leftDistance;
-        if (Math.abs(deltaX) > 0.5/2.54)
-        {
-            deltaY -= robot.WiggleWalk(robot.inches(deltaX),90.0, this)
-                    / robot.ticksPerInch;
-
-            robot.resetTickPeriod();
-            robot.waitForTick(sonarTicks);
-            leftDistance = robot.getLeftDistance()/2.54; // inches
-
-//            telemetry.addData("measure","left %.1f", leftDistance);
-//            telemetry.update();
-//            robot.waitForTick(2000);
-            deltaX = boxCenterX - leftDistance;
-            if (Math.abs(deltaX) > 0.5/2.54) {
-                robot.RunToEncoder2(robot.inches(-2.0), this);
-                deltaY += 2.0;
-                deltaY -= robot.WiggleWalk(robot.inches(deltaX), 90.0, this)
-                        / robot.ticksPerInch;
-            }
-        }
-        robot.RunToEncoder2(robot.inches(deltaY), this);
+        robot.TestRun2(2.0, 0.5, this);
     }
 }

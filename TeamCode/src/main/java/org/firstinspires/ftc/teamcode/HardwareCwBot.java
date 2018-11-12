@@ -20,7 +20,7 @@ public class HardwareCwBot
     public DcMotor backLeft = null;
     public DcMotor frontRight = null;
     public DcMotor frontLeft = null;
-    public Servo    phone       = null;
+    public Servo phoneServo = null;
 
     DeviceInterfaceModule dim;
     AnalogInput dsFront;
@@ -109,8 +109,8 @@ public class HardwareCwBot
         }
 
         // Define and initialize ALL installed servos.
-        phone = hwMap.servo.get("phone");
-        phone.setPosition(MID_SERVO);
+        phoneServo = hwMap.servo.get("phoneServo");
+        phoneServo.setPosition(MID_SERVO);
 
         imuParameters = new BNO055IMU.Parameters();
         imuParameters.accelRange = BNO055IMU.AccelRange.G16;
@@ -132,80 +132,12 @@ public class HardwareCwBot
         return unscaledPowers;
     }
 
-    void DriveByPid(int ticks, LinearOpMode caller)
-    {
-        int timeStep = 20; // 20 msec
-        double P = 0.0;
-        double I = 0.0;
-        double D = 0.0;
-
-        // Experiment: Accelerate with a power ramp of 1.0 per second for 0.5 seconds,
-        // then decelerate at the same rate. We travel 639 ticks.
-        // => 2*(1/2*a*t^2) = 639 ticks.  a = 2556 ticks/sec/sec
-        // Same experiment with same ramp rate for 1.0 seconds up and 1.0
-        // seconds down gives a = 2542 ticks/sec/sec
-        double fullPowerSpeed = 2548.0; // Ticks per second with power=1.0
-        double acc = fullPowerSpeed; // Since we are happy to get there in 1 sec.
-        // So ramp at fullPowerSpeed/sec, but max out the speed at 0.9 power, so we
-        // have room to adjust upward.
-        double rampUpDownDist = 2.0*(0.5*acc*0.9*0.9); // about 48 inches
-        double t1;
-        double t2;
-        double t3;
-        if (ticks < rampUpDownDist)
-        {
-            t1 = Math.sqrt(ticks/acc);
-            t2 = t1;
-            t3 = 2.0*t1;
-        }
-        else
-        {
-            t1 = 0.9;
-            t2 = (ticks-rampUpDownDist)/(0.9*fullPowerSpeed) + t1;
-            t3 = t2 + 0.9;
-        }
-        // Now we have a model of where we should be at any time.
-        // for t<t1:  d = 0.5*acc*t^2
-        // for t1<t<t2:  d = rampUpDownDist/2 + (t-t1)*0.9*fullPowerSpeed
-        // for t>t2: d = rampUpDownDist/2 + (t-t1)*0.9*fullPowerSpeed
-        //                  -0.5*acc*(t-t2)^2
-
-        int pos0 = AverageEncoders();
-        double startTime = driveTimer.time();
-        while (caller.opModeIsActive() && driveTimer.time()-startTime < t3)
-        {
-
-        }
-        Log.i("tag", "msg");
-
-
-
-    }
-
     int AverageEncoders()
     {
         int sum = 0;
         for (DcMotor m : allMotors)
             sum += m.getCurrentPosition();
         return sum/4;
-    }
-
-    double WiggleWalk(int transverseTicks, double heading, LinearOpMode caller)
-    {
-        double theta;
-        if (transverseTicks < 0)
-        {
-            theta = 180.0/Math.PI*Math.acos(1.0+transverseTicks/wheelBase);
-            PivotOnLeftWheel(heading+theta, caller);
-            PivotOnRightWheel(heading, caller);
-        }
-        else
-        {
-            theta = 180.0/Math.PI*Math.acos(1.0-transverseTicks/wheelBase);
-            PivotOnRightWheel(heading-theta, caller);
-            PivotOnLeftWheel(heading, caller);
-        }
-        return wheelBase * Math.sin(Math.PI/180*theta);
     }
 
     void RunToEncoder2(int ticks, LinearOpMode caller)
@@ -282,6 +214,9 @@ public class HardwareCwBot
 
     void TestRun1(double rampTime, double runTime, double maxPower, LinearOpMode caller)
     {
+        Log.i("foo",String.format("%.2f %.2f %.2f", rampTime,runTime,maxPower));
+        Log.i("foo", "Set powers in reverse order");
+
         long timeStep = 50;  // 50 msec cycles
         double deltaT = timeStep / 1000.0;
         double endTime = 2.0 * rampTime + runTime;
@@ -295,7 +230,7 @@ public class HardwareCwBot
             double power = 0.5*(f0+f1)*maxPower;
             for (int i=0; i<allMotors.length; i++)
             {
-                allMotors[i].setPower(power);
+                allMotors[3-i].setPower(power);
             }
             waitForTick(timeStep);
         }
@@ -304,14 +239,102 @@ public class HardwareCwBot
         logEncoders(t);
     }
 
+    void TestRun2(double runTime, double power, LinearOpMode caller)
+    {
+        Log.i("foo",String.format("%.2f %.2f", runTime,power));
+        Log.i("foo", "TestRun2: Time and power");
+
+        long timeStep = 50;  // 50 msec cycles
+        double deltaT = timeStep / 1000.0;
+        double remainingIntegral = runTime * power;
+        int powerTicks = (int)Math.floor(runTime/deltaT-0.5)-1;
+        if (powerTicks < 0) powerTicks = 0;
+        resetTickPeriod();
+        double lastTime = driveTimer.time();
+        double startTime = lastTime;
+
+        double startupPower = 0.33 * power;
+        for (int i=0; i<allMotors.length; i++)
+            allMotors[i].setPower(startupPower);
+        logEncoders(lastTime-startTime, startupPower);
+        waitForTick(timeStep);
+        double t0 = driveTimer.time();
+        remainingIntegral -= (t0 - lastTime)*startupPower;
+        lastTime = t0;
+
+        startupPower = 0.67 * power;
+        for (int i=0; i<allMotors.length; i++)
+            allMotors[i].setPower(startupPower);
+        logEncoders(lastTime-startTime, startupPower);
+        waitForTick(timeStep);
+        t0 = driveTimer.time();
+        remainingIntegral -= (t0 - lastTime)*startupPower;
+        lastTime = t0;
+
+        if (powerTicks > 0)
+        {
+            for (int i=0; i<allMotors.length; i++)
+                allMotors[i].setPower(power);
+            for (int p=0; caller.opModeIsActive() && p<powerTicks; p++)
+            {
+                logEncoders(lastTime-startTime, power);
+                waitForTick(timeStep);
+                double newTime = driveTimer.time();
+                remainingIntegral -= (newTime - lastTime)*power;
+                lastTime = newTime;
+                if (remainingIntegral <= 0.0) break;
+            }
+        }
+        for (int p=0; caller.opModeIsActive() && p<5 && remainingIntegral > 0.0; p++)
+        {
+            double reducedPower = 0.8*remainingIntegral/deltaT;
+            for (int i=0; i<allMotors.length; i++)
+                allMotors[i].setPower(reducedPower);
+            logEncoders(lastTime-startTime, reducedPower);
+            waitForTick(timeStep);
+            double newTime = driveTimer.time();
+            remainingIntegral -= (newTime - lastTime)*reducedPower;
+            lastTime = newTime;
+        }
+        if (remainingIntegral > 0.0)
+        {
+            double reducedPower = remainingIntegral/deltaT;
+            for (int i=0; i<allMotors.length; i++)
+                allMotors[i].setPower(reducedPower);
+            logEncoders(driveTimer.time()-startTime, reducedPower);
+            waitForTick(timeStep);
+        }
+        for (int i=0; i<allMotors.length; i++)
+            allMotors[i].setPower(0.0);
+        logEncoders(driveTimer.time()-startTime,0.0);
+        for (int p=0; p<(int) (0.4/deltaT); p++)
+        {
+            waitForTick(timeStep);
+            logEncoders(driveTimer.time()-startTime,0.0);
+        }
+    }
+
     void logEncoders(double t)
     {
-        String msg = String.format("drive: %7.3f %6d %6d %6d %6d",
+        String msg = String.format("drive: %7.4f %6d %6d %6d %6d",
                 t,
                 allMotors[0].getCurrentPosition(),
                 allMotors[1].getCurrentPosition(),
                 allMotors[2].getCurrentPosition(),
                 allMotors[3].getCurrentPosition()
+        );
+        Log.i("foo",msg);
+    }
+
+    void logEncoders(double t, double power)
+    {
+        String msg = String.format("drive: %7.4f %6d %6d %6d %6d %7.3f",
+                t,
+                allMotors[0].getCurrentPosition(),
+                allMotors[1].getCurrentPosition(),
+                allMotors[2].getCurrentPosition(),
+                allMotors[3].getCurrentPosition(),
+                power
         );
         Log.i("foo",msg);
     }
@@ -475,113 +498,6 @@ public class HardwareCwBot
         }
     }
 
-    void PivotOnLeftWheel(double target, LinearOpMode caller)
-    {
-        int maxSetSpeed = 1120;
-        double maxSpeed = 800.0;
-        int maxAcceleration = 2000;
-        int maxDeceleration = 4000;
-        double multiplier = 10.0;
-        double dt = 0.020;
-
-        int n = allMotors.length;
-        for (int i=0; i<n; i++)
-        {
-            allMotors[i].setPower(0.0);
-        }
-
-        double lastSpeed = 0.0;
-        double lastTime = driveTimer.time()-dt;
-        double remainingAngle = diffHeading(target);
-        while (caller.opModeIsActive() && (Math.abs(remainingAngle) > 0.5 || Math.abs(lastSpeed) > dt*maxDeceleration))
-        {
-            double time = driveTimer.time();
-            dt = time - lastTime;
-            lastTime = time;
-            double maxNewSpeed;
-            double minNewSpeed;
-
-            double newSpeed = multiplier * remainingAngle;
-            if (newSpeed > 0.0)
-            {
-                maxNewSpeed = Math.min(lastSpeed + dt*maxAcceleration,maxSpeed);
-                minNewSpeed = lastSpeed - dt*maxDeceleration;
-            }
-            else
-            {
-                maxNewSpeed = lastSpeed + dt*maxDeceleration;
-                minNewSpeed = Math.max(lastSpeed - dt*maxAcceleration,-maxSpeed);
-            }
-            if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
-            if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
-            double newPower  = newSpeed/ maxSetSpeed;
-            if (Math.abs(newPower)<0.07)
-                newPower = Math.signum(newPower)*0.07;
-            allMotors[1].setPower(newPower);
-            lastSpeed = newSpeed;
-            waitForTick(20);
-            remainingAngle = diffHeading(target);
-        }
-        for (int i=0; i<n; i++)
-        {
-            allMotors[i].setPower(0.0);
-        }
-    }
-
-    void PivotOnRightWheel(double target, LinearOpMode caller)
-    {
-        int maxSetSpeed = 1120;
-        double maxSpeed = 800.0;
-        int maxAcceleration = 2000;
-        int maxDeceleration = 4000;
-        double multiplier = 15.0;
-        double dt = 0.020;
-
-        int n = allMotors.length;
-        for (int i=0; i<n; i++)
-        {
-            allMotors[i].setPower(0.0);
-        }
-
-        double lastSpeed = 0.0;
-        double lastTime = driveTimer.time()-dt;
-        double remainingAngle = diffHeading(target);
-        while (caller.opModeIsActive() && (Math.abs(remainingAngle) > 0.5 || Math.abs(lastSpeed) > dt*maxDeceleration))
-        {
-            double time = driveTimer.time();
-            dt = time - lastTime;
-            lastTime = time;
-            double maxNewSpeed;
-            double minNewSpeed;
-
-            double newSpeed = multiplier * remainingAngle;
-            if (newSpeed > 0.0)
-            {
-                maxNewSpeed = Math.min(lastSpeed + dt*maxAcceleration,maxSpeed);
-                minNewSpeed = lastSpeed - dt*maxDeceleration;
-            }
-            else
-            {
-                maxNewSpeed = lastSpeed + dt*maxDeceleration;
-                minNewSpeed = Math.max(lastSpeed - dt*maxAcceleration,-maxSpeed);
-            }
-            if (newSpeed > maxNewSpeed) newSpeed = maxNewSpeed;
-            if (newSpeed < minNewSpeed) newSpeed = minNewSpeed;
-            double newPower  = newSpeed/ maxSetSpeed;
-            if (Math.abs(newPower)<0.07)
-                newPower = Math.signum(newPower)*0.07;
-            allMotors[0].setPower(-newPower);
-            lastSpeed = newSpeed;
-            waitForTick(20);
-            remainingAngle = diffHeading(target);
-        }
-        for (int i=0; i<n; i++)
-        {
-            allMotors[i].setPower(0.0);
-        }
-    }
-
-
     void RunToEncoder(int ticks, LinearOpMode caller)
     {
         int n = allMotors.length;
@@ -644,10 +560,10 @@ public class HardwareCwBot
                     TurnToHeading((double) data, caller);
                     break;
                 case RIGHTWHEELPIVOT:
-                    PivotOnRightWheel((double) data, caller);
+                    //PivotOnRightWheel((double) data, caller);
                     break;
                 case LEFTWHEELPIVOT:
-                    PivotOnLeftWheel((double) data, caller);
+                    //PivotOnLeftWheel((double) data, caller);
                     break;
                 case CHECKIMU:
                     Quaternion q = imu.getQuaternionOrientation();
@@ -709,9 +625,11 @@ public class HardwareCwBot
         dim.setLED(1,on);
     }
 
+    private long lastPeriodTime = 0;
     public void resetTickPeriod()
     {
         period.reset();
+        lastPeriodTime = 0;
     }
 
     /***
@@ -722,9 +640,9 @@ public class HardwareCwBot
      *
      * @param periodMs  Length of wait cycle in mSec.
      */
-    public void waitForTick(long periodMs) {
-
-        long  remaining = periodMs - (long)period.milliseconds();
+    public void waitForTick(long periodMs)
+    {
+        long  remaining = periodMs - ((long)period.milliseconds() - lastPeriodTime);
 
         // sleep for the remaining portion of the regular cycle period.
         if (remaining > 0) {
@@ -736,6 +654,7 @@ public class HardwareCwBot
         }
 
         // Reset the cycle clock for the next pass.
-        period.reset();
+        //period.reset();
+        lastPeriodTime += periodMs;
     }
 }
