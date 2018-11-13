@@ -138,6 +138,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAuto()
     {
-        robot.TestRun2(2.0, 0.5, this);
+        robot.TestRun3(2.0, 0.5, this);
     }
 }
