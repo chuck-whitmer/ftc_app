@@ -74,6 +74,11 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         waitForStart();
         robot.resetTickPeriod();
 
+        boolean aLastState = false;
+        boolean aPressed = false;
+        boolean bLastState = false;
+        boolean bPressed = false;
+
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
             //robot.backRight.setPower(gamepad1.right_bumper ? 1.0 : 0.0);
@@ -113,6 +118,16 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
             if (gamepad1.right_bumper)
                 TestAuto();
+            if (gamepad1.left_bumper)
+                robot.Drive(20.0*HardwareCwBot.inch,this);
+
+            aPressed = gamepad1.a && !aLastState;
+            aLastState = gamepad1.a;
+            bPressed = gamepad1.b && !bLastState;
+            bLastState = gamepad1.b;
+
+
+
 
             int encoderA = robot.frontLeft.getCurrentPosition();
             int encoderB = robot.backLeft.getCurrentPosition();

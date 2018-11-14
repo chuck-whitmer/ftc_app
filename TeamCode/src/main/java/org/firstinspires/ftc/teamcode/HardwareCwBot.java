@@ -314,6 +314,74 @@ public class HardwareCwBot
         }
     }
 
+    static public final double inch = 1.0 / 58.3;  // 58.3 inches per full-power-second
+    static public final double cm = inch / 2.54;
+
+    void Drive(double time, LinearOpMode caller)
+    {
+        Run3(2.0*time,0.5, caller);
+    }
+
+    void Run3(double runTime, double power, LinearOpMode caller)
+    {
+        long timeStepMsec = 50;  // 50 msec cycles
+        double deltaT = timeStepMsec / 1000.0;
+        double remainingIntegral = runTime * power;
+
+        // If there is so little movement that there is no time for
+        // ramps, then adjust the power down and time up.
+        if (runTime/deltaT < 3.0)
+        {
+            runTime = 3.000001 * deltaT;
+            power = remainingIntegral / runTime;
+        }
+        int powerTicks = (int)Math.floor(runTime/deltaT-3.0);
+        resetTickPeriod();
+        double lastTime = driveTimer.time();
+        double startTime = lastTime;
+
+        // Ramp up
+        for (int p=1; caller.opModeIsActive() && p<4; p++) {
+            double rampPower = (p * power)/4.0;
+            for (int i = 0; i < allMotors.length; i++)
+                allMotors[i].setPower(rampPower);
+            waitForTick(timeStepMsec);
+            double t0 = driveTimer.time();
+            remainingIntegral -= (t0 - lastTime) * rampPower;
+            lastTime = t0;
+        }
+
+        if (powerTicks > 0)
+        {
+            for (int i=0; i<allMotors.length; i++)
+                allMotors[i].setPower(power);
+            for (int p=0; caller.opModeIsActive() && p<powerTicks; p++)
+            {
+                waitForTick(timeStepMsec);
+                double newTime = driveTimer.time();
+                remainingIntegral -= (newTime - lastTime)*power;
+                lastTime = newTime;
+                if (remainingIntegral <= 0.0) break;
+            }
+        }
+        // Ramp down
+        for (int p=3; caller.opModeIsActive() && p>0; p--) {
+            double rampPower = (p * power)/4.0;
+            for (int i = 0; i < allMotors.length; i++)
+                allMotors[i].setPower(rampPower);
+            long step = (long)((2.0/(p+1))*remainingIntegral/rampPower*1000.0);
+            waitForTick(step);
+            double t0 = driveTimer.time();
+            remainingIntegral -= (t0 - lastTime) * rampPower;
+            lastTime = t0;
+            if (remainingIntegral <= 0.0) break;
+        }
+
+        for (int i=0; i<allMotors.length; i++)
+            allMotors[i].setPower(0.0);
+        waitForTick(400);
+    }
+
     void TestRun3(double runTime, double power, LinearOpMode caller)
     {
         Log.i("foo",String.format("%.2f %.2f", runTime,power));
@@ -367,7 +435,7 @@ public class HardwareCwBot
             for (int i = 0; i < allMotors.length; i++)
                 allMotors[i].setPower(rampPower);
             logEncoders(lastTime - startTime, rampPower);
-            long step = (long)((p/6.0)*remainingIntegral/rampPower*1000.0);
+            long step = (long)((2.0/(p+1))*remainingIntegral/rampPower*1000.0);
             waitForTick(step);
             double t0 = driveTimer.time();
             remainingIntegral -= (t0 - lastTime) * rampPower;
@@ -384,6 +452,90 @@ public class HardwareCwBot
             logEncoders(driveTimer.time()-startTime,0.0);
         }
     }
+
+    public double pidKp = 1.0;
+
+    void TestRunWithHeading(double runTime, double power, LinearOpMode caller)
+    {
+        Log.i("foo",String.format("%.2f %.2f", runTime,power));
+        Log.i("foo", "TestRun3: Time and power");
+
+        long timeStepMsec = 50;  // 50 msec cycles
+        double deltaT = timeStepMsec / 1000.0;
+        double remainingIntegral = runTime * power;
+
+        double targetHeading = getHeading();
+        double errorP = 0.0;
+
+
+        // If there is so little movement that there is no time for
+        // ramps, then adjust the power down and time up.
+        if (runTime/deltaT < 3.0)
+        {
+            runTime = 3.000001 * deltaT;
+            power = remainingIntegral / runTime;
+        }
+        int powerTicks = (int)Math.floor(runTime/deltaT-3.0);
+        resetTickPeriod();
+        double lastTime = driveTimer.time();
+        double startTime = lastTime;
+
+        // Ramp up
+        for (int p=1; caller.opModeIsActive() && p<4; p++) {
+            double rampPower = (p * power)/4.0;
+            for (int i = 0; i < allMotors.length; i++) {
+
+
+                allMotors[i].setPower(rampPower);
+            }
+            logEncoders(lastTime - startTime, rampPower);
+            waitForTick(timeStepMsec);
+            double t0 = driveTimer.time();
+            remainingIntegral -= (t0 - lastTime) * rampPower;
+            lastTime = t0;
+        }
+
+        if (powerTicks > 0)
+        {
+            for (int i=0; i<allMotors.length; i++)
+                allMotors[i].setPower(power);
+            for (int p=0; caller.opModeIsActive() && p<powerTicks; p++)
+            {
+                logEncoders(lastTime-startTime, power);
+                waitForTick(timeStepMsec);
+                double newTime = driveTimer.time();
+                remainingIntegral -= (newTime - lastTime)*power;
+                lastTime = newTime;
+                if (remainingIntegral <= 0.0) break;
+            }
+        }
+        // Ramp down
+        for (int p=3; caller.opModeIsActive() && p>0; p--) {
+            double rampPower = (p * power)/4.0;
+            for (int i = 0; i < allMotors.length; i++)
+                allMotors[i].setPower(rampPower);
+            logEncoders(lastTime - startTime, rampPower);
+            long step = (long)((2.0/(p+1))*remainingIntegral/rampPower*1000.0);
+            waitForTick(step);
+            double t0 = driveTimer.time();
+            remainingIntegral -= (t0 - lastTime) * rampPower;
+            lastTime = t0;
+            if (remainingIntegral <= 0.0) break;
+        }
+
+        for (int i=0; i<allMotors.length; i++)
+            allMotors[i].setPower(0.0);
+        logEncoders(driveTimer.time()-startTime,0.0);
+        for (int p=0; p<(int) (0.4/deltaT); p++)
+        {
+            waitForTick(timeStepMsec);
+            logEncoders(driveTimer.time()-startTime,0.0);
+        }
+    }
+
+
+
+
 
     void logEncoders(double t)
     {
