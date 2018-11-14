@@ -78,6 +78,10 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         boolean aPressed = false;
         boolean bLastState = false;
         boolean bPressed = false;
+        boolean yLastState = false;
+        boolean yPressed = false;
+        boolean xLastState = false;
+        boolean xPressed = false;
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
@@ -119,15 +123,32 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             if (gamepad1.right_bumper)
                 TestAuto();
             if (gamepad1.left_bumper)
-                robot.Drive(20.0*HardwareCwBot.inch,this);
+                robot.Drive(20.0*HardwareCwBot.driveInch,this);
 
             aPressed = gamepad1.a && !aLastState;
             aLastState = gamepad1.a;
             bPressed = gamepad1.b && !bLastState;
             bLastState = gamepad1.b;
+            yPressed = gamepad1.y && !yLastState;
+            yLastState = gamepad1.y;
 
+            // YBA = PID
+            if (yPressed)
+            {
+                if (robot.runWithHeadingKp == 0.0)
+                {
+                    robot.runWithHeadingKp = 1e-3;
+                }
+                else
+                {
+                    robot.runWithHeadingKp *= 1.414213562;
+                }
+            }
 
-
+            if (xPressed)
+            {
+                robot.runWithHeadingKp = 0.0;
+            }
 
             int encoderA = robot.frontLeft.getCurrentPosition();
             int encoderB = robot.backLeft.getCurrentPosition();
@@ -139,10 +160,11 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             // We will average over 1 second to reduce noise.
             double vFront = robot.getFrontDistance();
             double vLeft = robot.getLeftDistance();
-            telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
+            //telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("heading", "%.1f",robot.getHeading());
             telemetry.addData("Encoders","%6d %6d %6d %6d", encoderA,encoderB,encoderC,encoderD);
-            telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
+            telemetry.addData("PID", "%.4f %.2f %.2f",robot.runWithHeadingKp,robot.runWithHeadingKi,robot.runWithHeadingKd);
+            //telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
             telemetry.update();
 
             // Pause for 40 mS each cycle = update 25 times a second.
@@ -153,6 +175,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAuto()
     {
-        robot.TestRun3(2.0, 0.7, this);
+        robot.TestRunWithHeading(2.0, 0.5, this);
     }
 }

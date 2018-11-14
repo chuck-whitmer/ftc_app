@@ -38,10 +38,10 @@ public class HardwareCwBot
     private ElapsedTime period  = new ElapsedTime();
 
     DcMotor[] allMotors;
-    static final int FL = 0;
-    static final int FR = 1;
-    static final int BL = 2;
-    static final int BR = 3;
+    static final int FRONTLEFT = 0;
+    static final int FRONTRIGHT = 1;
+    static final int BACKLEFT = 2;
+    static final int BACKRIGHT = 3;
     double[] rotationArray;
     double[] powerFactor;
     ElapsedTime driveTimer = new ElapsedTime();
@@ -106,6 +106,7 @@ public class HardwareCwBot
             m.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             m.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            //m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         }
 
         // Define and initialize ALL installed servos.
@@ -314,8 +315,8 @@ public class HardwareCwBot
         }
     }
 
-    static public final double inch = 1.0 / 58.3;  // 58.3 inches per full-power-second
-    static public final double cm = inch / 2.54;
+    static public final double driveInch = 1.0 / 58.0;  // 58.0 inches per full-power-second
+    static public final double driveCm = driveInch / 2.54;
 
     void Drive(double time, LinearOpMode caller)
     {
@@ -453,19 +454,24 @@ public class HardwareCwBot
         }
     }
 
-    public double pidKp = 1.0;
+    // Rotation PID settings.
+    public double runWithHeadingKp = 0.0;
+    public double runWithHeadingKi = 0.0;
+    public double runWithHeadingKd = 0.0;
 
     void TestRunWithHeading(double runTime, double power, LinearOpMode caller)
     {
         Log.i("foo",String.format("%.2f %.2f", runTime,power));
-        Log.i("foo", "TestRun3: Time and power");
+        Log.i("foo", "TestRunWithHeading: Time and power");
 
         long timeStepMsec = 50;  // 50 msec cycles
         double deltaT = timeStepMsec / 1000.0;
         double remainingIntegral = runTime * power;
 
         double targetHeading = getHeading();
-        double errorP = 0.0;
+        double lastEncoders = averageEncoder();
+        double lastDiffHeading = 0.0;
+        double deltaY = 0.0;
 
 
         // If there is so little movement that there is no time for
@@ -484,25 +490,39 @@ public class HardwareCwBot
         for (int p=1; caller.opModeIsActive() && p<4; p++) {
             double rampPower = (p * power)/4.0;
             for (int i = 0; i < allMotors.length; i++) {
-
-
                 allMotors[i].setPower(rampPower);
             }
-            logEncoders(lastTime - startTime, rampPower);
+            logEncoders(lastTime - startTime, rampPower, 0.0);
             waitForTick(timeStepMsec);
             double t0 = driveTimer.time();
             remainingIntegral -= (t0 - lastTime) * rampPower;
             lastTime = t0;
         }
 
+        double newDiffHeading = diffHeading(targetHeading);
+        double avgDiffHeading = 0.5*(newDiffHeading + lastDiffHeading);
+        double newEncoders = averageEncoder();
+        deltaY += Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+        lastEncoders = newEncoders;
+        lastDiffHeading = newDiffHeading;
+        double rDifferential = -deltaY * runWithHeadingKp;
+
         if (powerTicks > 0)
         {
-            for (int i=0; i<allMotors.length; i++)
-                allMotors[i].setPower(power);
             for (int p=0; caller.opModeIsActive() && p<powerTicks; p++)
             {
-                logEncoders(lastTime-startTime, power);
+                logEncoders(lastTime-startTime, power, rDifferential);
+                setDifferentialPowers(power,rDifferential);
                 waitForTick(timeStepMsec);
+
+                newDiffHeading = diffHeading(targetHeading);
+                avgDiffHeading = 0.5*(newDiffHeading + lastDiffHeading);
+                newEncoders = averageEncoder();
+                deltaY += Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+                lastEncoders = newEncoders;
+                lastDiffHeading = newDiffHeading;
+                rDifferential = -deltaY * runWithHeadingKp;
+
                 double newTime = driveTimer.time();
                 remainingIntegral -= (newTime - lastTime)*power;
                 lastTime = newTime;
@@ -512,11 +532,19 @@ public class HardwareCwBot
         // Ramp down
         for (int p=3; caller.opModeIsActive() && p>0; p--) {
             double rampPower = (p * power)/4.0;
-            for (int i = 0; i < allMotors.length; i++)
-                allMotors[i].setPower(rampPower);
-            logEncoders(lastTime - startTime, rampPower);
+            setDifferentialPowers(rampPower,rDifferential);
+            logEncoders(lastTime - startTime, rampPower, rDifferential);
             long step = (long)((2.0/(p+1))*remainingIntegral/rampPower*1000.0);
             waitForTick(step);
+
+            newDiffHeading = diffHeading(targetHeading);
+            avgDiffHeading = 0.5*(newDiffHeading + lastDiffHeading);
+            newEncoders = averageEncoder();
+            deltaY += Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+            lastEncoders = newEncoders;
+            lastDiffHeading = newDiffHeading;
+            rDifferential = -deltaY * runWithHeadingKp;
+
             double t0 = driveTimer.time();
             remainingIntegral -= (t0 - lastTime) * rampPower;
             lastTime = t0;
@@ -533,8 +561,23 @@ public class HardwareCwBot
         }
     }
 
+    void setDifferentialPowers(double power, double r)
+    {
+        double pPlus = (1.0 + r) * power;
+        double pMinus = (1.0 - r) * power;
+        allMotors[FRONTRIGHT].setPower(pPlus);
+        allMotors[BACKRIGHT].setPower(pPlus);
+        allMotors[FRONTLEFT].setPower(pMinus);
+        allMotors[BACKLEFT].setPower(pMinus);
+    }
 
-
+    double averageEncoder()
+    {
+        double sum = 0.0;
+        for (DcMotor m : allMotors)
+            sum += m.getCurrentPosition();
+        return sum / 4.0;
+    }
 
 
     void logEncoders(double t)
@@ -551,13 +594,29 @@ public class HardwareCwBot
 
     void logEncoders(double t, double power)
     {
-        String msg = String.format("drive: %7.4f %6d %6d %6d %6d %7.3f",
+        String msg = String.format("drive: %7.4f %6d %6d %6d %6d %7.3f %5.2f",
                 t,
                 allMotors[0].getCurrentPosition(),
                 allMotors[1].getCurrentPosition(),
                 allMotors[2].getCurrentPosition(),
                 allMotors[3].getCurrentPosition(),
-                power
+                power,
+                getHeading()
+        );
+        Log.i("foo",msg);
+    }
+
+    void logEncoders(double t, double power, double r)
+    {
+        String msg = String.format("drive: %7.4f %6d %6d %6d %6d %7.3f %5.2f %7.4f",
+                t,
+                allMotors[0].getCurrentPosition(),
+                allMotors[1].getCurrentPosition(),
+                allMotors[2].getCurrentPosition(),
+                allMotors[3].getCurrentPosition(),
+                power,
+                getHeading(),
+                r
         );
         Log.i("foo",msg);
     }
