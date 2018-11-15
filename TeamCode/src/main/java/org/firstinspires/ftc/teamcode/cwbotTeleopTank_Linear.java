@@ -137,11 +137,23 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             {
                 if (robot.runWithHeadingKp == 0.0)
                 {
-                    robot.runWithHeadingKp = 1e-4;
+                    robot.runWithHeadingKp = 1e-2;
                 }
                 else
                 {
                     robot.runWithHeadingKp *= 1.414213562;
+                }
+            }
+
+            if (bPressed)
+            {
+                if (robot.runWithHeadingKi == 0.0)
+                {
+                    robot.runWithHeadingKi = 1e-2;
+                }
+                else
+                {
+                    robot.runWithHeadingKi *= 1.414213562;
                 }
             }
 
@@ -163,7 +175,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             //telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("heading", "%.1f",robot.getHeading());
             telemetry.addData("Encoders","%6d %6d %6d %6d", encoderA,encoderB,encoderC,encoderD);
-            telemetry.addData("PID", "%.4f %.2f %.2f",robot.runWithHeadingKp,robot.runWithHeadingKi,robot.runWithHeadingKd);
+            telemetry.addData("PID", "%.5f %.5f %.5f",robot.runWithHeadingKp,robot.runWithHeadingKi,robot.runWithHeadingKd);
             //telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
             telemetry.update();
 

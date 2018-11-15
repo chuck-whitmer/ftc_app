@@ -455,7 +455,7 @@ public class HardwareCwBot
     }
 
     // Rotation PID settings.
-    public double runWithHeadingKp = 0.0;
+    public double runWithHeadingKp = 64e-4;
     public double runWithHeadingKi = 0.0;
     public double runWithHeadingKd = 0.0;
 
@@ -466,7 +466,8 @@ public class HardwareCwBot
     void TestRunWithHeading(double runTime, double power, LinearOpMode caller)
     {
         Log.i("foo",String.format("%.2f %.2f", runTime,power));
-        Log.i("foo", String.format("TestRunWithHeading: Time and power - P = %9.5f",runWithHeadingKp));
+        Log.i("foo", String.format("TestRunWithHeading: Time and power"));
+        Log.i("foo", String.format("P = %9.5f  I = %9.5f  D = %9.5f",runWithHeadingKp,runWithHeadingKi,runWithHeadingKd));
 
         long timeStepMsec = 50;  // 50 msec cycles
         double deltaT = timeStepMsec / 1000.0;
@@ -475,8 +476,10 @@ public class HardwareCwBot
         double targetHeading = getHeading();
         double lastEncoders = averageEncoder();
         double lastDiffHeading = 0.0;
-        double deltaY = 0.0;
-
+        double deltaY = 0.0;  // Give the error correction a kick start.
+        double lastDeltaY = 0.0;
+        double integralDeltaY = 0.0;
+        double dt = 0;
 
         // If there is so little movement that there is no time for
         // ramps, then adjust the power down and time up.
@@ -490,13 +493,13 @@ public class HardwareCwBot
         double lastTime = driveTimer.time();
         double startTime = lastTime;
 
+        double rDifferential = (deltaY * runWithHeadingKp + integralDeltaY * runWithHeadingKi)/100.0;
+
         // Ramp up
         for (int p=1; caller.opModeIsActive() && p<4; p++) {
             double rampPower = (p * power)/4.0;
-            for (int i = 0; i < allMotors.length; i++) {
-                allMotors[i].setPower(rampPower);
-            }
-            logEncoders(lastTime - startTime, rampPower, 0.0, deltaY);
+            setDifferentialPowers(rampPower,rDifferential);
+            logEncoders(lastTime - startTime, rampPower, rDifferential, deltaY);
             waitForTick(timeStepMsec);
             double t0 = driveTimer.time();
             remainingIntegral -= (t0 - lastTime) * rampPower;
@@ -506,10 +509,14 @@ public class HardwareCwBot
         double newDiffHeading = -diffHeading(targetHeading);
         double avgDiffHeading = 0.5*(newDiffHeading + lastDiffHeading);
         double newEncoders = averageEncoder();
-        deltaY += Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+        // Our SetPoint for deltaY is 0, and the control depends on SetPoint - PresentValue
+        dt = lastTime - startTime;
+        deltaY -= Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+        integralDeltaY = 0.5 * deltaY * dt;
+        lastDeltaY = deltaY;
         lastEncoders = newEncoders;
         lastDiffHeading = newDiffHeading;
-        double rDifferential = -deltaY * runWithHeadingKp;
+        rDifferential = (deltaY * runWithHeadingKp + integralDeltaY * runWithHeadingKi)/100.0;
 
         if (powerTicks > 0)
         {
@@ -522,13 +529,16 @@ public class HardwareCwBot
                 newDiffHeading = -diffHeading(targetHeading);
                 avgDiffHeading = 0.5*(newDiffHeading + lastDiffHeading);
                 newEncoders = averageEncoder();
-                deltaY += Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+                double newTime = driveTimer.time();
+                dt = newTime - lastTime;
+                deltaY -= Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+                integralDeltaY = 0.5 * (deltaY + lastDeltaY) * dt;
+                lastDeltaY = deltaY;
                 lastEncoders = newEncoders;
                 lastDiffHeading = newDiffHeading;
-                rDifferential = -deltaY * runWithHeadingKp;
+                rDifferential = (rDifferential = deltaY * runWithHeadingKp + integralDeltaY * runWithHeadingKi)/100.0;
 
-                double newTime = driveTimer.time();
-                remainingIntegral -= (newTime - lastTime)*power;
+                remainingIntegral -= dt*power;
                 lastTime = newTime;
                 if (remainingIntegral <= 0.0) break;
             }
@@ -544,13 +554,16 @@ public class HardwareCwBot
             newDiffHeading = -diffHeading(targetHeading);
             avgDiffHeading = 0.5*(newDiffHeading + lastDiffHeading);
             newEncoders = averageEncoder();
-            deltaY += Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+            double t0 = driveTimer.time();
+            dt = t0 - lastTime;
+            deltaY -= Math.sin(avgDiffHeading * Math.PI / 180.0) *(newEncoders - lastEncoders);
+            integralDeltaY = 0.5 * (deltaY + lastDeltaY) * dt;
+            lastDeltaY = deltaY;
             lastEncoders = newEncoders;
             lastDiffHeading = newDiffHeading;
-            rDifferential = -deltaY * runWithHeadingKp;
+            rDifferential = rDifferential = (deltaY * runWithHeadingKp + integralDeltaY * runWithHeadingKi)/100.0;
 
-            double t0 = driveTimer.time();
-            remainingIntegral -= (t0 - lastTime) * rampPower;
+            remainingIntegral -= dt * rampPower;
             lastTime = t0;
             if (remainingIntegral <= 0.0) break;
         }
