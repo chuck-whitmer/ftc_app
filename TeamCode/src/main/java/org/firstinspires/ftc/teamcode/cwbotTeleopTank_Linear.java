@@ -137,7 +137,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             {
                 if (robot.runWithHeadingKp == 0.0)
                 {
-                    robot.runWithHeadingKp = 1e-3;
+                    robot.runWithHeadingKp = 1e-4;
                 }
                 else
                 {
@@ -175,6 +175,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAuto()
     {
-        robot.TestRunWithHeading(2.0, 0.5, this);
+        robot.TestRunWithHeading(2.5, 0.5, this);
     }
 }
