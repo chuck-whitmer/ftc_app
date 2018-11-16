@@ -320,7 +320,10 @@ public class HardwareCwBot
 
     void Drive(double time, LinearOpMode caller)
     {
-        Run3(2.0*time,0.5, caller);
+        if (time > 0.0)
+            Run3(2.0*time,0.5, caller);
+        else
+            Run3(2.0*time,-0.5, caller);
     }
 
     void Run3(double runTime, double power, LinearOpMode caller)
@@ -381,6 +384,73 @@ public class HardwareCwBot
         for (int i=0; i<allMotors.length; i++)
             allMotors[i].setPower(0.0);
         waitForTick(400);
+    }
+
+    // 0.5 full power seconds is about 143 degrees.
+
+    void Rotate(double runTime, double power, LinearOpMode caller)
+    {
+        long timeStepMsec = 50;  // 50 msec cycles
+        double deltaT = timeStepMsec / 1000.0;
+        double remainingIntegral = runTime * Math.abs(power);
+
+        // If there is so little movement that there is no time for
+        // ramps, then adjust the power down and time up.
+        if (runTime/deltaT < 3.0)
+        {
+            runTime = 3.000001 * deltaT;
+            power = remainingIntegral / runTime;
+        }
+        int powerTicks = (int)Math.floor(runTime/deltaT-3.0);
+        resetTickPeriod();
+        double lastTime = driveTimer.time();
+        double startTime = lastTime;
+
+        // Ramp up
+        for (int p=1; caller.opModeIsActive() && p<4; p++) {
+            double rampPower = (p * power)/4.0;
+            SetRotationPower(rampPower);
+            waitForTick(timeStepMsec);
+            double t0 = driveTimer.time();
+            remainingIntegral -= (t0 - lastTime) * Math.abs(rampPower);
+            lastTime = t0;
+        }
+
+        if (powerTicks > 0)
+        {
+            SetRotationPower(power);
+            for (int p=0; caller.opModeIsActive() && p<powerTicks; p++)
+            {
+                waitForTick(timeStepMsec);
+                double newTime = driveTimer.time();
+                remainingIntegral -= (newTime - lastTime)*Math.abs(power);
+                lastTime = newTime;
+                if (remainingIntegral <= 0.0) break;
+            }
+        }
+        // Ramp down
+        for (int p=3; caller.opModeIsActive() && p>0; p--) {
+            double rampPower = (p * power)/4.0;
+            SetRotationPower(rampPower);
+            long step = (long)((2.0/(p+1))*remainingIntegral/Math.abs(rampPower)*1000.0);
+            waitForTick(step);
+            double t0 = driveTimer.time();
+            remainingIntegral -= (t0 - lastTime) * Math.abs(rampPower);
+            lastTime = t0;
+            if (remainingIntegral <= 0.0) break;
+        }
+
+        for (int i=0; i<allMotors.length; i++)
+            allMotors[i].setPower(0.0);
+        waitForTick(400);
+    }
+
+    void SetRotationPower(double power)
+    {
+        allMotors[FRONTRIGHT].setPower(power);
+        allMotors[FRONTLEFT].setPower(-power);
+        allMotors[BACKRIGHT].setPower(power);
+        allMotors[BACKLEFT].setPower(-power);
     }
 
     void TestRun3(double runTime, double power, LinearOpMode caller)
@@ -455,7 +525,7 @@ public class HardwareCwBot
     }
 
     // Rotation PID settings.
-    public double runWithHeadingKp = 64e-4;
+    public double runWithHeadingKp = 0.10;
     public double runWithHeadingKi = 0.0;
     public double runWithHeadingKd = 0.0;
 

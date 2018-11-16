@@ -120,10 +120,12 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
                     robot.allMotors[i].setPower(0.0);
             }
 
-            if (gamepad1.right_bumper)
-                TestAuto();
+            if (gamepad1.right_bumper) {
+                robot.Rotate(1.0, 0.5, this);
+                //TestAuto();
+            }
             if (gamepad1.left_bumper)
-                robot.Drive(20.0*HardwareCwBot.driveInch,this);
+                robot.Rotate(1.0, -0.5, this);
 
             aPressed = gamepad1.a && !aLastState;
             aLastState = gamepad1.a;
@@ -137,7 +139,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             {
                 if (robot.runWithHeadingKp == 0.0)
                 {
-                    robot.runWithHeadingKp = 1e-2;
+                    robot.runWithHeadingKp = 0.01;
                 }
                 else
                 {
@@ -149,7 +151,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             {
                 if (robot.runWithHeadingKi == 0.0)
                 {
-                    robot.runWithHeadingKi = 1e-2;
+                    robot.runWithHeadingKi = 0.01;
                 }
                 else
                 {
