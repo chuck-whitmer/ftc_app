@@ -121,8 +121,8 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             }
 
             if (gamepad1.right_bumper) {
-                robot.Rotate(1.0, 0.5, this);
-                //TestAuto();
+                //robot.Rotate(1.0, 0.5, this);
+                TestAuto();
             }
             if (gamepad1.left_bumper)
                 robot.Rotate(1.0, -0.5, this);
@@ -133,6 +133,8 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             bLastState = gamepad1.b;
             yPressed = gamepad1.y && !yLastState;
             yLastState = gamepad1.y;
+            xPressed = gamepad1.x && !xLastState;
+            xLastState = gamepad1.x;
 
             // YBA = PID
             if (yPressed)
@@ -169,15 +171,15 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             int encoderC = robot.frontRight.getCurrentPosition();
             int encoderD = robot.backRight.getCurrentPosition();
 
-            Quaternion q = robot.imu.getQuaternionOrientation();
-            // The sonar only refreshes at 6.7 Hz.
-            // We will average over 1 second to reduce noise.
-            double vFront = robot.getFrontDistance();
-            double vLeft = robot.getLeftDistance();
+            //Quaternion q = robot.imu.getQuaternionOrientation();
             //telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("heading", "%.1f",robot.getHeading());
             telemetry.addData("Encoders","%6d %6d %6d %6d", encoderA,encoderB,encoderC,encoderD);
             telemetry.addData("PID", "%.5f %.5f %.5f",robot.runWithHeadingKp,robot.runWithHeadingKi,robot.runWithHeadingKd);
+            // The sonar only refreshes at 6.7 Hz.
+            // We will average over 1 second to reduce noise.
+            //double vFront = robot.getFrontDistance();
+            //double vLeft = robot.getLeftDistance();
             //telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
             telemetry.update();
 
@@ -189,6 +191,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAuto()
     {
-        robot.TestRunWithHeading(2.5, 0.5, this);
+        robot.TestRunWithHeading(5.0, 0.5, this);
     }
 }

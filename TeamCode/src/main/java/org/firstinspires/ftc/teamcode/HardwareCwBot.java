@@ -51,23 +51,27 @@ public class HardwareCwBot
     {}
 
     // 4" Tetrix wheels
-    //public static final double ticksPerCm = 37.734; // 1.0/.02879 for Stealth // 1.0/0.02905 for Tetrix
-    //public static final double ticksPerInch = 88.225; // = 2.54 * ticksPerCm;
-    //public static final double wheelBase = 1455.7; // 16.5 * ticksPerInch;
+//    public static final double ticksPerCm = 37.734; // 1.0/.02879 for Stealth // 1.0/0.02905 for Tetrix
+//    public static final double ticksPerInch = 88.225; // = 2.54 * ticksPerCm;
+//    public static final double wheelBase = 1455.7; // 16.5 * ticksPerInch;
+    static public final double driveInch = 1.0 / 58.0;  // 58.0 inches per full-power-second
+    static public final double driveCm = driveInch / 2.54;
+    // 0.5 full power seconds is about 143 degrees.
+
+    static public  final double msPerInch = 17.2;  // 1.0 inch is 17.2 full power milliseconds.
+    static public  final double msPerCm = 6.79;  // 1.0 cm is 17.2 full power milliseconds.
+
 
     // Mecanum wheels - Neverest Orbital 20
     public static final double ticksPerCm = 17.29;
     public static final double ticksPerInch = 43.9; // = 2.54 * ticksPerCm;
     public static final double wheelBase = 1455.7; // 16.5 * ticksPerInch;
 
-    public static int inches(double len)
-    {
-        return (int) Math.round(len * ticksPerInch);
-    }
+    public static int inches(double len) {return (int) Math.round(len * msPerInch);}
 
     public static int cms(double len)
     {
-        return (int) Math.round(len * ticksPerCm);
+        return (int) Math.round(len * msPerCm);
     }
 
     /* Initialize standard Hardware interfaces */
@@ -106,7 +110,6 @@ public class HardwareCwBot
             m.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             m.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            //m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         }
 
         // Define and initialize ALL installed servos.
@@ -315,11 +318,10 @@ public class HardwareCwBot
         }
     }
 
-    static public final double driveInch = 1.0 / 58.0;  // 58.0 inches per full-power-second
-    static public final double driveCm = driveInch / 2.54;
 
-    void Drive(double time, LinearOpMode caller)
+    void Drive(int fullPowerMs, LinearOpMode caller)
     {
+        double time = fullPowerMs/1000.0;
         if (time > 0.0)
             Run3(2.0*time,0.5, caller);
         else
@@ -330,7 +332,7 @@ public class HardwareCwBot
     {
         long timeStepMsec = 50;  // 50 msec cycles
         double deltaT = timeStepMsec / 1000.0;
-        double remainingIntegral = runTime * power;
+        double remainingIntegral = Math.abs(runTime * power);
 
         // If there is so little movement that there is no time for
         // ramps, then adjust the power down and time up.
@@ -351,34 +353,36 @@ public class HardwareCwBot
                 allMotors[i].setPower(rampPower);
             waitForTick(timeStepMsec);
             double t0 = driveTimer.time();
-            remainingIntegral -= (t0 - lastTime) * rampPower;
+            remainingIntegral -= (t0 - lastTime) * Math.abs(rampPower);
             lastTime = t0;
         }
 
         if (powerTicks > 0)
         {
+            double absPower = Math.abs(power);
             for (int i=0; i<allMotors.length; i++)
                 allMotors[i].setPower(power);
             for (int p=0; caller.opModeIsActive() && p<powerTicks; p++)
             {
                 waitForTick(timeStepMsec);
                 double newTime = driveTimer.time();
-                remainingIntegral -= (newTime - lastTime)*power;
+                remainingIntegral -= (newTime - lastTime)*absPower;
                 lastTime = newTime;
                 if (remainingIntegral <= 0.0) break;
             }
         }
         // Ramp down
         for (int p=3; caller.opModeIsActive() && p>0; p--) {
+            if (remainingIntegral <= 0.0) break;
             double rampPower = (p * power)/4.0;
+            double absPower = Math.abs(rampPower);
             for (int i = 0; i < allMotors.length; i++)
                 allMotors[i].setPower(rampPower);
-            long step = (long)((2.0/(p+1))*remainingIntegral/rampPower*1000.0);
+            long step = (long)((2.0/(p+1))*remainingIntegral/absPower*1000.0);
             waitForTick(step);
             double t0 = driveTimer.time();
-            remainingIntegral -= (t0 - lastTime) * rampPower;
+            remainingIntegral -= (t0 - lastTime) * absPower;
             lastTime = t0;
-            if (remainingIntegral <= 0.0) break;
         }
 
         for (int i=0; i<allMotors.length; i++)
@@ -386,7 +390,6 @@ public class HardwareCwBot
         waitForTick(400);
     }
 
-    // 0.5 full power seconds is about 143 degrees.
 
     void Rotate(double runTime, double power, LinearOpMode caller)
     {
@@ -910,8 +913,6 @@ public class HardwareCwBot
 
     final public int DRIVE = 0;
     final public int GOTOHEADING = 1;
-    final public int RIGHTWHEELPIVOT = 2;
-    final public int LEFTWHEELPIVOT = 3;
     final public int CHECKIMU = 4;
 
     void RunProgram(int[] prog, LinearOpMode caller)
@@ -924,16 +925,10 @@ public class HardwareCwBot
             switch (instruction)
             {
                 case DRIVE:
-                    RunToEncoder3(data, caller);
+                    Drive(data, caller);
                     break;
                 case GOTOHEADING:
                     TurnToHeading((double) data, caller);
-                    break;
-                case RIGHTWHEELPIVOT:
-                    //PivotOnRightWheel((double) data, caller);
-                    break;
-                case LEFTWHEELPIVOT:
-                    //PivotOnLeftWheel((double) data, caller);
                     break;
                 case CHECKIMU:
                     Quaternion q = imu.getQuaternionOrientation();
