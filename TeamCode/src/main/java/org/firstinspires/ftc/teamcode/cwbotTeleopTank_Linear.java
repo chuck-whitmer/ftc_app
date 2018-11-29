@@ -32,8 +32,6 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
-
 /**
  * This OpMode uses the common HardwareK9bot class to define the devices on the robot.
  * All device access is managed through the HardwareK9bot class. (See this class for device names)
@@ -56,8 +54,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 {
     /* Declare OpMode members. */
     HardwareCwBot robot = new HardwareCwBot();
-
-
 
     @Override
     public void runOpMode() {
@@ -91,7 +87,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
             float x = gamepad1.left_stick_x;
             float y = -gamepad1.left_stick_y; // Negate to get +y forward.
-            float rotation = -gamepad1.right_stick_x;
+            float rotation = gamepad1.right_stick_x;
             float speedControl = 0.5f*(1.0f + gamepad1.left_trigger);
             double biggestControl = Math.sqrt(x*x+y*y);
             double biggestWithRotation = Math.sqrt(x*x+y*y+rotation*rotation);
@@ -102,7 +98,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             double pow2 = 0.0;
             for (int i=0; i<robot.allMotors.length; i++)
             {
-                double pow = powers[i]*biggestControl + rotation * robot.rotationArray[i];
+                double pow = powers[i]*biggestControl + rotation * robot.turnFactors[i];
                 powers[i] = pow;
                 pow2 += pow*pow;
             }
@@ -120,12 +116,10 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
                     robot.allMotors[i].setPower(0.0);
             }
 
-            if (gamepad1.right_bumper) {
-                //robot.Rotate(1.0, 0.5, this);
-                TestAuto();
-            }
+            if (gamepad1.right_bumper)
+                TestAutoR();
             if (gamepad1.left_bumper)
-                robot.Rotate(1.0, -0.5, this);
+                TestAutoL();
 
             aPressed = gamepad1.a && !aLastState;
             aLastState = gamepad1.a;
@@ -175,12 +169,12 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             //telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("heading", "%.1f",robot.getHeading());
             telemetry.addData("Encoders","%6d %6d %6d %6d", encoderA,encoderB,encoderC,encoderD);
-            telemetry.addData("PID", "%.5f %.5f %.5f",robot.runWithHeadingKp,robot.runWithHeadingKi,robot.runWithHeadingKd);
+//            telemetry.addData("PID", "%.5f %.5f %.5f",robot.runWithHeadingKp,robot.runWithHeadingKi,robot.runWithHeadingKd);
             // The sonar only refreshes at 6.7 Hz.
             // We will average over 1 second to reduce noise.
-            //double vFront = robot.getFrontDistance();
-            //double vLeft = robot.getLeftDistance();
-            //telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
+            double vFront = robot.getFrontDistance();
+            double vLeft = robot.getLeftDistance();
+            telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
             telemetry.update();
 
             // Pause for 40 mS each cycle = update 25 times a second.
@@ -189,8 +183,50 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         }
     }
 
-    void TestAuto()
+    int[] programRightGold = new int[]
+            {
+                    HardwareCwBot.SETHEADING, -45,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
+                    HardwareCwBot.TURNTOHEADING, 0,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(18.0),
+                    HardwareCwBot.TURNTOHEADING, -45,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(15.0),
+                    HardwareCwBot.TURNTOHEADING, -90,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(12.0),
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(-5.0),
+                    HardwareCwBot.TURNTOHEADING, 90,
+                    HardwareCwBot.STRAFE, HardwareCwBot.inches(-4.0),
+                    HardwareCwBot.TURNTOHEADING, 90,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(58.0)
+            };
+    int[] programTestDrive = new int[]
+            {
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(12.0),
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(12.0),
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(12.0)
+            };
+    int[] programTestStrafe = new int[]
+            {
+                    HardwareCwBot.STRAFE, HardwareCwBot.inches(12.0),
+                    HardwareCwBot.STRAFE, HardwareCwBot.inches(12.0),
+                    HardwareCwBot.STRAFE, HardwareCwBot.inches(12.0)
+            };
+
+    void TestAutoR()
     {
-        robot.TestRunWithHeading(5.0, 0.5, this);
+        robot.RunProgram(programRightGold,this);
+    }
+
+    int[] programTestTurns = new int[]
+            {
+                    HardwareCwBot.TURN, HardwareCwBot.degrees(90.0),
+                    HardwareCwBot.TURN, HardwareCwBot.degrees(90.0),
+                    HardwareCwBot.TURN, HardwareCwBot.degrees(90.0),
+                    HardwareCwBot.TURN, HardwareCwBot.degrees(90.0)
+            };
+
+    void TestAutoL()
+    {
+        robot.RunProgram(programTestTurns,this);
     }
 }

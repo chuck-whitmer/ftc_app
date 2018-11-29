@@ -73,11 +73,11 @@ public class cwbotIMUTest extends LinearOpMode
         while (opModeIsActive()) {
             if (gamepad1.right_bumper)
             {
-                robot.RunToEncoder2(robot.inches(-2.0), this);
+                robot.Drive(robot.inches(-2.0), this);
             }
             if (gamepad1.left_bumper)
             {
-                robot.RunToEncoder2(robot.inches(2.0), this);
+                robot.Drive(robot.inches(2.0), this);
             }
 
             float x = gamepad1.right_stick_x;
