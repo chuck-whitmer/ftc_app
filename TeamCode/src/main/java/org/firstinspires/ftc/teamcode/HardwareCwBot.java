@@ -214,25 +214,26 @@ public class HardwareCwBot
         }
     }
 
+    private double runPower = 0.5;
 
     void Drive(int fullPowerMs, LinearOpMode caller)
     {
         double time = fullPowerMs/1000.0;
-        AllRun(Math.abs(2.0*time),0.5*Math.signum(time),driveFactors,caller);
+        AllRun(Math.abs(time/runPower),runPower*Math.signum(time),driveFactors,caller);
     }
 
     // A turn is clockwise for the given full-power time.
     void Turn(int fullPowerMs, LinearOpMode caller)
     {
         double time = fullPowerMs/1000.0;
-        AllRun(Math.abs(2.0*time),0.5*Math.signum(time),turnFactors,caller);
+        AllRun(Math.abs(time/runPower),runPower*Math.signum(time),turnFactors,caller);
     }
 
     // A strafe is to the right.
     void Strafe(int fullPowerMs, LinearOpMode caller)
     {
         double time = fullPowerMs/1000.0;
-        AllRun(Math.abs(2.0*time),0.5*Math.signum(time),strafeFactors,caller);
+        AllRun(Math.abs(time/runPower),runPower*Math.signum(time),strafeFactors,caller);
     }
 
     void TurnToHeading(int heading, LinearOpMode caller)
@@ -637,6 +638,7 @@ public class HardwareCwBot
     static final public int TURNTOHEADING = 3;
     static final public int CHECKIMU = 4;
     static final public int SETHEADING = 5;
+    static final public int SETPOWER = 6;
 
     void RunProgram(int[] prog, LinearOpMode caller)
     {
@@ -661,6 +663,9 @@ public class HardwareCwBot
                     break;
                 case SETHEADING:
                     setHeading(data);
+                    break;
+                case SETPOWER:
+                    runPower = data / 100.0;
                     break;
                 case CHECKIMU:
                     Quaternion q = imu.getQuaternionOrientation();
