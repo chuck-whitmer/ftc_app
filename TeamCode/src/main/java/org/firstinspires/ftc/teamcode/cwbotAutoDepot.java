@@ -29,6 +29,8 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import com.disnodeteam.dogecv.CameraViewDisplay;
+import com.disnodeteam.dogecv.DogeCV;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -50,11 +52,14 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@Autonomous(name="Depot Side", group="cwbot")
+@Autonomous(name="Depot Side Auto", group="cwbot")
 public class cwbotAutoDepot extends LinearOpMode
 {
     /* Declare OpMode members. */
     HardwareCwBot robot = new HardwareCwBot();
+
+    // Detector object
+    private MyGoldDetector detector;
 
     @Override
     public void runOpMode() {
@@ -67,11 +72,60 @@ public class cwbotAutoDepot extends LinearOpMode
         telemetry.addData("Say", "Hello Otto");    //
         telemetry.update();
 
-        // Wait for the game to start (drive r presses PLAY)
-        waitForStart();
-        robot.resetTickPeriod();
+        robot.phoneServo.setPosition(robot.PHONE_AT_45);
 
-        robot.RunProgram(programRightGold, this);
+        // Set up detector
+        detector = new MyGoldDetector(); // Create detector
+        detector.init(hardwareMap.appContext, CameraViewDisplay.getInstance()); // Initialize it with the app context and camera
+        detector.useDefaults(); // Set detector to use default settings
+
+        // Optional tuning
+        detector.downscale = 0.4; // How much to downscale the input frames
+
+        detector.areaScoringMethod = DogeCV.AreaScoringMethod.MAX_AREA; // Can also be PERFECT_AREA
+        //detector.perfectAreaScorer.perfectArea = 10000; // if using PERFECT_AREA scoring
+        detector.maxAreaScorer.weight = 0.005; //
+
+        detector.ratioScorer.weight = 5; //
+        detector.ratioScorer.perfectRatio = 1.0; // Ratio adjustment
+
+        detector.enable(); // Start the detector!
+
+        while (!isStarted())
+        {
+            if (detector.isFound())
+            {
+                String location = String.format("%5d , %5d / %5d x %5d / %5d x %5d",
+                        detector.X, detector.Y, detector.Width, detector.Height, detector.ScreenWidth, detector.ScreenHeight );
+                telemetry.addData("Gold", location);
+            }
+            else
+            {
+                telemetry.addData("Gold", "not found");
+            }
+            telemetry.update();
+
+            robot.waitForTick(50);
+        }
+
+        // Wait for the game to start (drive r presses PLAY)
+        //waitForStart();
+
+        int[] programToRun = programRightGold;
+
+        if (detector.isFound())
+        {
+            if (detector.X < detector.ScreenWidth/2)
+                programToRun = programLeftGold;
+            else
+                programToRun = programCenterGold;
+        }
+
+        robot.phoneServo.setPosition(robot.PHONE_VERTICAL);
+        robot.resetTickPeriod();
+        robot.RunProgram(programToRun, this);
+
+        detector.disable();
     }
 
     int[] programRightGold = new int[]

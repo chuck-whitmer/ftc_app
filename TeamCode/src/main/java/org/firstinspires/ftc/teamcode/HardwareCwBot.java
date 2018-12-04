@@ -27,7 +27,8 @@ public class HardwareCwBot
     AnalogInput dsLeft;
     double systemVoltage;
 
-    public static final double MID_SERVO =  0.4 ;
+    public static final double PHONE_VERTICAL =  0.4 ;
+    public static final double PHONE_AT_45 =  0.2 ;
 
     // The IMU sensor object
     BNO055IMU imu;
@@ -109,7 +110,7 @@ public class HardwareCwBot
 
         // Define and initialize ALL installed servos.
         phoneServo = hwMap.servo.get("phoneServo");
-        phoneServo.setPosition(MID_SERVO);
+        phoneServo.setPosition(PHONE_VERTICAL);
 
         imuParameters = new BNO055IMU.Parameters();
         imuParameters.accelRange = BNO055IMU.AccelRange.G16;
