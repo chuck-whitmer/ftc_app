@@ -640,6 +640,7 @@ public class HardwareCwBot
     static final public int CHECKIMU = 4;
     static final public int SETHEADING = 5;
     static final public int SETPOWER = 6;
+    static final public int WAIT = 7;
 
     void RunProgram(int[] prog, LinearOpMode caller)
     {
@@ -668,6 +669,9 @@ public class HardwareCwBot
                 case SETPOWER:
                     runPower = data / 100.0;
                     break;
+                case WAIT:
+                    waitForTick((long)data);
+                    break;
                 case CHECKIMU:
                     Quaternion q = imu.getQuaternionOrientation();
                     if (q.magnitude() < 0.9)
@@ -679,6 +683,8 @@ public class HardwareCwBot
                         waitForTick(2000);
                     }
             }
+            caller.telemetry.addData("heading", "%.1f",getHeading());
+            caller.telemetry.update();
         }
     }
 
@@ -704,8 +710,6 @@ public class HardwareCwBot
             //telemetry.update();
             return 0.0;
         }
-        c /= norm;
-        s /= norm;
         // The atan2 returns the half-angle, so double it and convert to degrees.
         double angle = -Math.atan2(s,c) * 360.0 / Math.PI; // The atan gives us the half-angle.
         // Put the angle in the range from -180 to 180.
@@ -721,9 +725,10 @@ public class HardwareCwBot
     double diffHeading(double target)
     {
         double diff = target - getHeading();
-        diff = (diff + 720.0) % 360.0;
-        if (diff > 180.0) diff -= 360;
-        return diff;
+        return normalizeAngle(diff);
+//        diff = (diff + 720.0) % 360.0;
+//        if (diff > 180.0) diff -= 360;
+//        return diff;
     }
 
     public double getFrontDistance() // in cm
@@ -763,7 +768,8 @@ public class HardwareCwBot
      */
     public void waitForTick(long periodMs)
     {
-        long  remaining = periodMs - ((long)period.milliseconds() - lastPeriodTime);
+        lastPeriodTime += periodMs; // Our estimate of when we return from this call.
+        long  remaining = lastPeriodTime - (long)period.milliseconds();
 
         // sleep for the remaining portion of the regular cycle period.
         if (remaining > 0) {
@@ -773,9 +779,5 @@ public class HardwareCwBot
                 Thread.currentThread().interrupt();
             }
         }
-
-        // Reset the cycle clock for the next pass.
-        //period.reset();
-        lastPeriodTime += periodMs;
     }
 }

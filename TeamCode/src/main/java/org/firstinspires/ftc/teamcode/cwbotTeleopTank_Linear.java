@@ -176,92 +176,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         }
     }
 
-    int[] programRightGold = new int[]
-            {
-                    HardwareCwBot.SETHEADING, -45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
-                    HardwareCwBot.TURNTOHEADING, 0,
-                    HardwareCwBot.SETPOWER, 25,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(19.0),
-                    HardwareCwBot.SETPOWER, 50,
-                    HardwareCwBot.TURNTOHEADING, -45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(16.0),
-                    HardwareCwBot.TURNTOHEADING, -90,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(-6.0),
-                    HardwareCwBot.TURNTOHEADING, 90,
-                    HardwareCwBot.STRAFE, HardwareCwBot.inches(-4.0),
-                    HardwareCwBot.TURNTOHEADING, 90,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(58.0)
-            };
-
-    int[] programCraterRightGold = new int[]
-            {
-                    HardwareCwBot.SETHEADING, 45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
-                    HardwareCwBot.TURNTOHEADING, 90,
-                    HardwareCwBot.SETPOWER, 25,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(19.0),
-                    HardwareCwBot.SETPOWER, 50,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(-12.0),
-                    HardwareCwBot.TURNTOHEADING, -45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(25.0),
-                    HardwareCwBot.TURNTOHEADING, -90,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(18.0),
-                    HardwareCwBot.SETPOWER, 25,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(30.0),
-                    HardwareCwBot.SETPOWER, 50,
-                    HardwareCwBot.TURNTOHEADING, -45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(10.0),
-                    HardwareCwBot.TURNTOHEADING, -90,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(12.0),
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(-6.0),
-                    HardwareCwBot.TURNTOHEADING, 90,
-                    HardwareCwBot.STRAFE, HardwareCwBot.inches(-4.0),
-                    HardwareCwBot.TURNTOHEADING, 90,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(59.0)
-            };
-
-    int[] programLeftGold = new int[]
-            {
-                    HardwareCwBot.SETHEADING, -45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
-                    HardwareCwBot.TURNTOHEADING, -90,
-                    HardwareCwBot.SETPOWER, 25,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(18.0),
-                    HardwareCwBot.SETPOWER, 50,
-                    HardwareCwBot.TURNTOHEADING, -45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(16.0),
-                    HardwareCwBot.TURNTOHEADING, 0,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(-6.0),
-                    HardwareCwBot.TURNTOHEADING, 45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(18.0),
-                    HardwareCwBot.TURNTOHEADING, 90,
-                    HardwareCwBot.STRAFE, HardwareCwBot.inches(-4.0),
-                    HardwareCwBot.TURNTOHEADING, 90,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(59.5),
-            };
-
-    int[] programCenterGold = new int[]
-            {
-                    HardwareCwBot.SETHEADING, -45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(57.0),
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(-7.0),
-                    HardwareCwBot.TURNTOHEADING, 45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(11.0),
-                    HardwareCwBot.TURNTOHEADING, 90,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(59.0),
-//                    HardwareCwBot.DRIVE, HardwareCwBot.inches(16.0),
-//                    HardwareCwBot.TURNTOHEADING, 0,
-//                    HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
-//                    HardwareCwBot.DRIVE, HardwareCwBot.inches(-6.0),
-//                    HardwareCwBot.TURNTOHEADING, 45,
-//                    HardwareCwBot.DRIVE, HardwareCwBot.inches(28.0),
-//                    HardwareCwBot.TURNTOHEADING, 90,
-//                    HardwareCwBot.DRIVE, HardwareCwBot.inches(51.5),
-            };
-
     int[] programTestDrive = new int[]
             {
                     HardwareCwBot.DRIVE, HardwareCwBot.inches(12.0),
@@ -277,11 +191,11 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAutoR()
     {
-        robot.RunProgram(programCraterRightGold,this);
+        robot.RunProgram(AutoPath.programCraterRightGold,this);
     }
     void TestAutoC()
     {
-        robot.RunProgram(programCenterGold,this);
+        robot.RunProgram(AutoPath.programCenterGold,this);
     }
 
     int[] programTestTurns = new int[]
@@ -294,6 +208,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAutoL()
     {
-        robot.RunProgram(programLeftGold,this);
+        robot.RunProgram(AutoPath.programLeftGold,this);
     }
 }

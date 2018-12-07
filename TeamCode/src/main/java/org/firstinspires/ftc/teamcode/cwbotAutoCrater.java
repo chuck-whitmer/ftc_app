@@ -33,7 +33,6 @@ import com.disnodeteam.dogecv.CameraViewDisplay;
 import com.disnodeteam.dogecv.DogeCV;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 /**
  * This OpMode uses the common HardwareK9bot class to define the devices on the robot.
@@ -52,8 +51,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@Autonomous(name="Depot Side Auto", group="cwbot")
-public class cwbotAutoDepot extends LinearOpMode
+@Autonomous(name="Crater Side Auto", group="cwbot")
+public class cwbotAutoCrater extends LinearOpMode
 {
     /* Declare OpMode members. */
     HardwareCwBot robot = new HardwareCwBot();
@@ -111,14 +110,18 @@ public class cwbotAutoDepot extends LinearOpMode
         // Wait for the game to start (drive r presses PLAY)
         //waitForStart();
 
-        int[] programToRun = AutoPath.programRightGold;
+        int[] programToRun = AutoPath.programCraterRightGold;
 
         if (detector.isFound())
         {
             if (detector.X < detector.ScreenWidth/2)
-                programToRun = AutoPath.programLeftGold;
+            {
+                programToRun = AutoPath.programCraterLeftGold;
+            }
             else
-                programToRun = AutoPath.programCenterGold;
+            {
+                programToRun = AutoPath.programCraterCenterGold;
+            }
         }
 
         robot.phoneServo.setPosition(robot.PHONE_VERTICAL);
