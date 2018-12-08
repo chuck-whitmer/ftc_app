@@ -52,6 +52,18 @@ public class AutoPath {
                     HardwareCwBot.DRIVE, HardwareCwBot.inches(59.0),
             };
 
+    static int[] programOrbit = new int[]
+            {
+                    HardwareCwBot.SETHEADING, -45,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
+                    HardwareCwBot.TURNTOHEADING, -135,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(33.5),
+                    HardwareCwBot.TURNTOHEADING, -90,
+                    HardwareCwBot.APPROACHTO, 36,
+                    HardwareCwBot.TURNTOHEADING, 135,
+            };
+
+
     static int[] programCraterRightGold = new int[]
             {
                     HardwareCwBot.SETHEADING, 45,
@@ -62,7 +74,7 @@ public class AutoPath {
                     HardwareCwBot.DRIVE, HardwareCwBot.inches(-12.0),
                     HardwareCwBot.SETPOWER, 50,
                     HardwareCwBot.TURNTOHEADING, -45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(40.5),
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(42.5),
                     HardwareCwBot.TURNTOHEADING, -90,
                     HardwareCwBot.DRIVE, HardwareCwBot.inches(18.0),
                     HardwareCwBot.SETPOWER, 25,

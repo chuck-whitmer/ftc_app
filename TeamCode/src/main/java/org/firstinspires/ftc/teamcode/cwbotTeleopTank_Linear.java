@@ -191,7 +191,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void TestAutoR()
     {
-        robot.RunProgram(AutoPath.programCraterRightGold,this);
+        robot.RunProgram(AutoPath.programOrbit,this);
     }
     void TestAutoC()
     {

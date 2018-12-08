@@ -94,6 +94,9 @@ public class MyGoldDetector extends DogeCVDetector {
             Rect rect = Imgproc.boundingRect(cont);
             Imgproc.rectangle(displayMat, rect.tl(), rect.br(), new Scalar(0,0,255),2); // Draw rect
 
+            if (rect.y < ScreenHeight / 3)
+                continue; // Ignore gold in the crater!
+
             // If the result is better then the previously tracked one, set this rect as the new best
             if(score < bestDiffrence){
                 bestDiffrence = score;

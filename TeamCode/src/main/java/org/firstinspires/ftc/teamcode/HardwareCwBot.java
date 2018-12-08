@@ -93,7 +93,7 @@ public class HardwareCwBot
         turnFactors = new double[]{1.0, -1.0, 1.0, -1.0};
         driveFactors = new double[] {1.0, 1.0, 1.0, 1.0};
         // The back end of the robot is heavy. This makes the back motors more effective.
-        strafeFactors = new double[] {1.0, -1.0, -0.75, 0.75};
+        strafeFactors = new double[] {1.0, -1.0, -0.85, 0.85};
 
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         frontLeft.setDirection(DcMotor.Direction.FORWARD);
@@ -245,6 +245,13 @@ public class HardwareCwBot
         diff = heading - getHeading();
         if (Math.abs(diff) > 2.0)
             Turn(degrees(diff), caller);
+    }
+
+    void ApproachTo(int distanceInCm, LinearOpMode caller)
+    {
+        double driveDistance = distanceInCm - getFrontDistance();
+        if (Math.abs(driveDistance)<20.0)
+            Drive(cms(driveDistance), caller);
     }
 
     // AllRun - Handles all programed movement, including driving, strafing, and turning.
@@ -641,6 +648,7 @@ public class HardwareCwBot
     static final public int SETHEADING = 5;
     static final public int SETPOWER = 6;
     static final public int WAIT = 7;
+    static final public int APPROACHTO = 8;
 
     void RunProgram(int[] prog, LinearOpMode caller)
     {
@@ -671,6 +679,9 @@ public class HardwareCwBot
                     break;
                 case WAIT:
                     waitForTick((long)data);
+                    break;
+                case APPROACHTO:
+                    ApproachTo(data, caller);
                     break;
                 case CHECKIMU:
                     Quaternion q = imu.getQuaternionOrientation();
