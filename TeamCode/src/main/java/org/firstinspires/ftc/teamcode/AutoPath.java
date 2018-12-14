@@ -54,11 +54,17 @@ public class AutoPath {
 
     static int[] programToAndFro = new int[]
             {
+                    HardwareCwBot.SETHEADING, 0,
                     HardwareCwBot.APPROACHTO, 40,
-                    HardwareCwBot.APPROACHTO, 50,
+                    HardwareCwBot.TURNTOHEADING, 0,
+                    HardwareCwBot.APPROACHTO, 70,
+                    HardwareCwBot.TURNTOHEADING, 0,
                     HardwareCwBot.APPROACHTO, 40,
-                    HardwareCwBot.APPROACHTO, 50,
+                    HardwareCwBot.TURNTOHEADING, 0,
+                    HardwareCwBot.APPROACHTO, 70,
+                    HardwareCwBot.TURNTOHEADING, 0,
                     HardwareCwBot.APPROACHTO, 40,
+                    HardwareCwBot.TURNTOHEADING, 0,
             };
 
     static int[] programOrbit = new int[]
@@ -66,24 +72,34 @@ public class AutoPath {
                     HardwareCwBot.SETHEADING, -45,
                     HardwareCwBot.DRIVE, HardwareCwBot.inches(13.0),
                     HardwareCwBot.TURNTOHEADING, -135,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(34),
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(34.5),
                     HardwareCwBot.TURNTOHEADING, -90,
                     HardwareCwBot.APPROACHTO, 36,
+
                     HardwareCwBot.TURNTOHEADING, 135,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(68.0),
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(69.0),
                     HardwareCwBot.TURNTOHEADING, 180,
                     HardwareCwBot.APPROACHTO, 36,
-                    HardwareCwBot.TURNTOHEADING, 180+135,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(68.0),
+                    HardwareCwBot.TURNTOHEADING, -45,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(69.0),
                     HardwareCwBot.TURNTOHEADING, -90,
                     HardwareCwBot.APPROACHTO, 36,
-                    HardwareCwBot.TURNTOHEADING, 45,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(68.0),
-                    HardwareCwBot.TURNTOHEADING, 0,
-                    HardwareCwBot.DISPLAY,0,
+
+                    HardwareCwBot.TURNTOHEADING, 135,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(69.0),
+                    HardwareCwBot.TURNTOHEADING, 180,
                     HardwareCwBot.APPROACHTO, 36,
-                    HardwareCwBot.TURNTOHEADING, -135,
-                    HardwareCwBot.DRIVE, HardwareCwBot.inches(68.0),
+                    HardwareCwBot.TURNTOHEADING, -45,
+                    HardwareCwBot.DRIVE, HardwareCwBot.inches(69.0),
+                    HardwareCwBot.TURNTOHEADING, -90,
+                    HardwareCwBot.APPROACHTO, 36,
+//                    HardwareCwBot.TURNTOHEADING, 45,
+//                    HardwareCwBot.DRIVE, HardwareCwBot.inches(68.0),
+//                    HardwareCwBot.TURNTOHEADING, 0,
+//                    HardwareCwBot.DISPLAY,0,
+//                    HardwareCwBot.APPROACHTO, 36,
+//                    HardwareCwBot.TURNTOHEADING, -135,
+//                    HardwareCwBot.DRIVE, HardwareCwBot.inches(68.0),
 
             };
 

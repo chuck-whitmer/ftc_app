@@ -235,6 +235,8 @@ public class HardwareCwBot
     void Drive(int fullPowerMs, LinearOpMode caller)
     {
         double time = fullPowerMs/1000.0;
+        String msg = String.format("Drive: %d",fullPowerMs);
+        Log.i("foo", msg);
         AllRun(Math.abs(time/runPower),runPower*Math.signum(time),driveFactors,caller);
     }
 
@@ -255,17 +257,24 @@ public class HardwareCwBot
     void TurnToHeading(int heading, LinearOpMode caller)
     {
         double diff = normalizeAngle(heading - getHeading());
+        String msg = String.format("TurnToHeading: %d diff: %.2f", heading, diff);
+        Log.i("foo",msg);
         Turn(degrees(diff), caller);
 
         diff = normalizeAngle(heading - getHeading());
-        if (Math.abs(diff) > 2.0)
+        if (Math.abs(diff) > 2.0) {
+            msg = String.format("TurnToHeading2: %d diff: %.2f", heading, diff);
+            Log.i("foo", msg);
             Turn(degrees(diff), caller);
+        }
     }
 
     void ApproachTo(int distanceInCm, LinearOpMode caller)
     {
-        double driveDistance = distanceInCm - getFrontDistance();
-        if (Math.abs(driveDistance)<20.0)
+        double driveDistance = getFrontDistance()-distanceInCm;
+        String msg = String.format("ApproachTo: %d drive: %.2f", distanceInCm, driveDistance);
+        Log.i("foo", msg);
+        if (Math.abs(driveDistance)<40.0)
             Drive(cms(driveDistance), caller);
     }
 
