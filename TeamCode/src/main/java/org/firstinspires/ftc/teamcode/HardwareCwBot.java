@@ -3,14 +3,20 @@ package org.firstinspires.ftc.teamcode;
 import android.util.Log;
 
 import com.qualcomm.hardware.bosch.BNO055IMU;
+import com.qualcomm.hardware.rev.Rev2mDistanceSensor;
+import com.qualcomm.hardware.stmicroelectronics.VL53L0X;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DeviceInterfaceModule;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.I2cDeviceSynch;
+import com.qualcomm.robotcore.hardware.I2cDeviceSynchDevice;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
 
 public class HardwareCwBot
@@ -21,7 +27,8 @@ public class HardwareCwBot
     public DcMotor frontRight = null;
     public DcMotor frontLeft = null;
     public Servo phoneServo = null;
-
+    public DistanceSensor rangeSensor = null;
+    //public VL53L0X rev2M = null;
     DeviceInterfaceModule dim;
     AnalogInput dsFront;
     AnalogInput dsLeft;
@@ -88,7 +95,15 @@ public class HardwareCwBot
         backLeft = hwMap.dcMotor.get("backLeft");
         frontRight = hwMap.dcMotor.get("frontRight");
         frontLeft = hwMap.dcMotor.get("frontLeft");
+//        rangeSensor = hwMap.get(DistanceSensor.class, "TwoMeter");
+//        rev2M = (VL53L0X) (I2cDeviceSynchDevice<I2cDeviceSynch>)  (hwMap.get(DistanceSensor.class, "TwoMeter"));
+//        I2cDeviceSynch i2c = hwMap.get(I2cDeviceSynch.class, "TwoMeter");
+//        rev2M = new VL53L0X(i2c);
 
+        //rev2M = (VL53L0X) rangeSensor;
+//        rev2M = (Rev2mDistanceSensor) sensorRange;
+        // you can also cast this to a Rev2mDistanceSensor if you want to use added
+        // methods associated with the Rev2mDistanceSensor class.
         allMotors = new DcMotor[] {frontLeft, frontRight, backLeft, backRight};
         turnFactors = new double[]{1.0, -1.0, 1.0, -1.0};
         driveFactors = new double[] {1.0, 1.0, 1.0, 1.0};
@@ -239,10 +254,10 @@ public class HardwareCwBot
 
     void TurnToHeading(int heading, LinearOpMode caller)
     {
-        double diff = heading - getHeading();
+        double diff = normalizeAngle(heading - getHeading());
         Turn(degrees(diff), caller);
 
-        diff = heading - getHeading();
+        diff = normalizeAngle(heading - getHeading());
         if (Math.abs(diff) > 2.0)
             Turn(degrees(diff), caller);
     }
@@ -649,6 +664,7 @@ public class HardwareCwBot
     static final public int SETPOWER = 6;
     static final public int WAIT = 7;
     static final public int APPROACHTO = 8;
+    static final public int DISPLAY = 9;
 
     void RunProgram(int[] prog, LinearOpMode caller)
     {
@@ -669,9 +685,11 @@ public class HardwareCwBot
                     Turn(data, caller);
                     break;
                 case TURNTOHEADING:
+                    waitForTick(100);
                     TurnToHeading(data, caller);
                     break;
                 case SETHEADING:
+                    waitForTick(100);
                     setHeading(data);
                     break;
                 case SETPOWER:
@@ -680,7 +698,17 @@ public class HardwareCwBot
                 case WAIT:
                     waitForTick((long)data);
                     break;
+                case DISPLAY:
+                    waitForTick(1000);
+                    double dLeft = getFrontDistance();
+                    double dRight = 0.0;// rev2M.getDistance(DistanceUnit.CM);
+                    caller.telemetry.addData("heading", "%.1f",getHeading());
+                    caller.telemetry.addData("ds",  "%.2f %.2f", dLeft, dRight);
+                    caller.telemetry.update();
+                    waitForTick(1000);
+                    break;
                 case APPROACHTO:
+                    waitForTick(1000);
                     ApproachTo(data, caller);
                     break;
                 case CHECKIMU:

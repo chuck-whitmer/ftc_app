@@ -32,6 +32,8 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+
 /**
  * This OpMode uses the common HardwareK9bot class to define the devices on the robot.
  * All device access is managed through the HardwareK9bot class. (See this class for device names)
@@ -116,10 +118,10 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
                     robot.allMotors[i].setPower(0.0);
             }
 
-            if (gamepad1.right_bumper)
-                TestAutoR();
-            if (gamepad1.left_bumper)
-                TestAutoL();
+//            if (gamepad1.right_bumper)
+//                TestAutoR();
+//            if (gamepad1.left_bumper)
+//                TestAutoL();
 
             aPressed = gamepad1.a && !aLastState;
             aLastState = gamepad1.a;
@@ -133,14 +135,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             // YBA = PID
             if (yPressed)
             {
-                if (robot.runWithHeadingKp == 0.0)
-                {
-                    robot.runWithHeadingKp = 0.01;
-                }
-                else
-                {
-                    robot.runWithHeadingKp *= 1.414213562;
-                }
+                TestAutoR();
             }
 
             if (bPressed)
@@ -165,9 +160,9 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 //            telemetry.addData("PID", "%.5f %.5f %.5f",robot.runWithHeadingKp,robot.runWithHeadingKi,robot.runWithHeadingKd);
             // The sonar only refreshes at 6.7 Hz.
             // We will average over 1 second to reduce noise.
-            double vFront = robot.getFrontDistance();
-            double vLeft = robot.getLeftDistance();
-            telemetry.addData("ds",  "%.2f %.2f", vFront, vLeft);
+            double dLeft = robot.getFrontDistance();
+            double dRight = 0.0; // robot.rev2M.getDistance(DistanceUnit.CM);
+            telemetry.addData("ds",  "%.2f %.2f", dLeft, dRight);
             telemetry.update();
 
             // Pause for 40 mS each cycle = update 25 times a second.
@@ -195,7 +190,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
     }
     void TestAutoC()
     {
-        robot.RunProgram(AutoPath.programCenterGold,this);
+        robot.RunProgram(AutoPath.programToAndFro,this);
     }
 
     int[] programTestTurns = new int[]
