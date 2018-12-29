@@ -28,7 +28,7 @@ public class HardwareCwBot
     public DcMotor frontLeft = null;
     public Servo phoneServo = null;
     public DistanceSensor rangeSensor = null;
-    //public VL53L0X rev2M = null;
+    public MyVL53L0X rev2M = null;
     DeviceInterfaceModule dim;
     AnalogInput dsFront;
     AnalogInput dsLeft;
@@ -78,7 +78,7 @@ public class HardwareCwBot
     /* Initialize standard Hardware interfaces */
     public void init(HardwareMap ahwMap)
     {
-        Log.i("robot.init","init");
+        Log.i("foo","robot.init");
 
         // Save reference to Hardware map
         hwMap = ahwMap;
@@ -95,15 +95,10 @@ public class HardwareCwBot
         backLeft = hwMap.dcMotor.get("backLeft");
         frontRight = hwMap.dcMotor.get("frontRight");
         frontLeft = hwMap.dcMotor.get("frontLeft");
-//        rangeSensor = hwMap.get(DistanceSensor.class, "TwoMeter");
-//        rev2M = (VL53L0X) (I2cDeviceSynchDevice<I2cDeviceSynch>)  (hwMap.get(DistanceSensor.class, "TwoMeter"));
-//        I2cDeviceSynch i2c = hwMap.get(I2cDeviceSynch.class, "TwoMeter");
-//        rev2M = new VL53L0X(i2c);
 
-        //rev2M = (VL53L0X) rangeSensor;
-//        rev2M = (Rev2mDistanceSensor) sensorRange;
-        // you can also cast this to a Rev2mDistanceSensor if you want to use added
-        // methods associated with the Rev2mDistanceSensor class.
+        I2cDeviceSynch i2c = hwMap.get(I2cDeviceSynch.class, "TwoMeter");
+        rev2M = new MyVL53L0X(i2c);
+
         allMotors = new DcMotor[] {frontLeft, frontRight, backLeft, backRight};
         turnFactors = new double[]{1.0, -1.0, 1.0, -1.0};
         driveFactors = new double[] {1.0, 1.0, 1.0, 1.0};
@@ -256,12 +251,12 @@ public class HardwareCwBot
 
     void TurnToHeading(int heading, LinearOpMode caller)
     {
-        double diff = normalizeAngle(heading - getHeading());
+        double diff = normalizeAngle(heading - getHeadingWithLog());
         String msg = String.format("TurnToHeading: %d diff: %.2f", heading, diff);
         Log.i("foo",msg);
         Turn(degrees(diff), caller);
 
-        diff = normalizeAngle(heading - getHeading());
+        diff = normalizeAngle(heading - getHeadingWithLog());
         if (Math.abs(diff) > 2.0) {
             msg = String.format("TurnToHeading2: %d diff: %.2f", heading, diff);
             Log.i("foo", msg);
@@ -269,10 +264,12 @@ public class HardwareCwBot
         }
     }
 
-    void ApproachTo(int distanceInCm, LinearOpMode caller)
+    void ApproachTo(int desiredDistanceInCm, LinearOpMode caller)
     {
-        double driveDistance = getFrontDistance()-distanceInCm;
-        String msg = String.format("ApproachTo: %d drive: %.2f", distanceInCm, driveDistance);
+//        double presentDistance = getFrontDistance();
+        double presentDistance = rev2M.readRangeContinuousMillimeters()/10.0;
+        double driveDistance = presentDistance-desiredDistanceInCm;
+        String msg = String.format("ApproachTo: %d drive: %.2f", desiredDistanceInCm, driveDistance);
         Log.i("foo", msg);
         if (Math.abs(driveDistance)<40.0)
             Drive(cms(driveDistance), caller);
@@ -694,11 +691,11 @@ public class HardwareCwBot
                     Turn(data, caller);
                     break;
                 case TURNTOHEADING:
-                    waitForTick(100);
+                    //waitForTick(100);
                     TurnToHeading(data, caller);
                     break;
                 case SETHEADING:
-                    waitForTick(100);
+                    //waitForTick(100);
                     setHeading(data);
                     break;
                 case SETPOWER:
@@ -717,7 +714,7 @@ public class HardwareCwBot
                     waitForTick(1000);
                     break;
                 case APPROACHTO:
-                    waitForTick(1000);
+                    //waitForTick(1000);
                     ApproachTo(data, caller);
                     break;
                 case CHECKIMU:
@@ -738,8 +735,26 @@ public class HardwareCwBot
 
     public void setHeading(double h)
     {
+        Log.i("foo",String.format("setHeading: %.2f",h));
+        checkAndResetIMU();
         headingOffset = 0.0;
-        headingOffset = h - getHeading();
+        headingOffset = h - getHeadingWithLog();
+    }
+
+    public boolean checkAndResetIMU()
+    {
+        Quaternion q = imu.getQuaternionOrientation();
+        double c = q.w;
+        double s = q.z;
+        double norm = Math.sqrt(c*c+s*s);
+        if (norm < 0.5)
+        {
+            imu.initialize(imuParameters);
+            Log.i("foo","IMU Reset!");
+            waitForTick(500);
+            return false;
+        }
+        return true;  // It was fine.
     }
 
     private double headingOffset = 0.0;
@@ -754,6 +769,27 @@ public class HardwareCwBot
         double norm = Math.sqrt(c*c+s*s);
         if (norm < 0.5)
         {
+            //telemetry.addData("Say", "IMU died!");
+            //telemetry.update();
+            return 0.0;
+        }
+        // The atan2 returns the half-angle, so double it and convert to degrees.
+        double angle = -Math.atan2(s,c) * 360.0 / Math.PI; // The atan gives us the half-angle.
+        // Put the angle in the range from -180 to 180.
+        return normalizeAngle(angle + headingOffset);
+    }
+
+    double getHeadingWithLog()
+    {
+        Quaternion q = imu.getQuaternionOrientation();
+        String msg = String.format("q: %.3f %.3f %.3f %.3f",q.w,q.x,q.y,q.z);
+        Log.i("foo",msg);
+        double c = q.w;
+        double s = q.z;
+        double norm = Math.sqrt(c*c+s*s);
+        if (norm < 0.5)
+        {
+            Log.i("foo","IMU died");
             //telemetry.addData("Say", "IMU died!");
             //telemetry.update();
             return 0.0;

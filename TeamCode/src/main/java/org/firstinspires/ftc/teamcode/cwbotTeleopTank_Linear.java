@@ -62,6 +62,8 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         /* Initialize the hardware variables.
          * The init() method of the hardware class does all the work here
          */
+        telemetry.addData("Say", "Init robot...");    //
+        telemetry.update();
         robot.init(hardwareMap);
 
         // Send telemetry message to signify robot waiting;
@@ -161,7 +163,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             // The sonar only refreshes at 6.7 Hz.
             // We will average over 1 second to reduce noise.
             double dLeft = robot.getFrontDistance();
-            double dRight = 0.0; // robot.rev2M.getDistance(DistanceUnit.CM);
+            double dRight = robot.rev2M.getDistance(DistanceUnit.CM);
             telemetry.addData("ds",  "%.2f %.2f", dLeft, dRight);
             telemetry.update();
 
