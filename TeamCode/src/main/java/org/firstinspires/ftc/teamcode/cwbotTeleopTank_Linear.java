@@ -29,8 +29,11 @@
 
 package org.firstinspires.ftc.teamcode;
 
+import android.util.Log;
+
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
@@ -137,17 +140,17 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             // YBA = PID
             if (yPressed)
             {
-                TestAutoR();
+                ExerciseDistanceSensors();
             }
 
             if (bPressed)
             {
-                TestAutoC();
+                ApproachAndLogSensors();
             }
 
             if (xPressed)
             {
-                robot.runWithHeadingKp = 0.0;
+                RetreatAndLogSensors();
             }
 
             int encoderA = robot.frontLeft.getCurrentPosition();
@@ -173,6 +176,110 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
         }
     }
 
+    void ExerciseDistanceSensors()
+    {
+        robot.runPower = 0.25;
+        for (int i=0; i<4; i++)
+        {
+            robot.allMotors[i].setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            robot.allMotors[i].setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        }
+        robot.setHeading(0);
+        int nSteps = 3;
+        int iLoops = 4;
+        double length = 12.0;
+        for (int ll=0; opModeIsActive() && ll<iLoops; ll++)
+        {
+            LogMeasurements();
+            for (int i = 0; i < nSteps; i++) {
+                robot.Drive(-HardwareCwBot.inches(length),this);
+                LogMeasurements();
+            }
+            robot.TurnToHeading(0, this);
+            LogMeasurements();
+            if (!opModeIsActive()) break;
+            for (int i = 0; i < nSteps; i++) {
+                robot.Drive(HardwareCwBot.inches(length),this);
+                LogMeasurements();
+            }
+            robot.TurnToHeading(0, this);
+        }
+    }
+
+    void ApproachAndLogSensors()
+    {
+        robot.runPower = 0.25;
+        for (int i=0; i<4; i++)
+        {
+            robot.allMotors[i].setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            robot.allMotors[i].setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        }
+        robot.setHeading(0);
+        LogMeasurements();
+
+        double lastLaserDistance = robot.rev2M.getDistance(DistanceUnit.CM);
+        while (opModeIsActive() && lastLaserDistance > 10.0)
+        {
+            robot.Drive(HardwareCwBot.inches(2.0), this);
+            robot.TurnToHeading(0, this);
+            LogMeasurements();
+            lastLaserDistance = robot.rev2M.getDistance(DistanceUnit.CM);
+        }
+    }
+
+    void RetreatAndLogSensors()
+    {
+        double stepDistance = 8.0; // inches
+        robot.runPower = 0.25;
+        for (int i=0; i<4; i++)
+        {
+            robot.allMotors[i].setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            robot.allMotors[i].setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        }
+        robot.setHeading(0);
+        LogMeasurements();
+
+        double lastLaserDistance = robot.rev2M.getDistance(DistanceUnit.CM);
+        while (opModeIsActive() && lastLaserDistance < 800.0)
+        {
+            robot.Drive(HardwareCwBot.inches(-stepDistance), this);
+            robot.TurnToHeading(0, this);
+            LogMeasurements();
+            lastLaserDistance = robot.rev2M.getDistance(DistanceUnit.CM);
+        }
+    }
+
+    void LogMeasurements()
+    {
+        robot.waitForTick(1000);
+        int[] encoders = new int[4];
+        for (int i=0; i<4; i++)
+            encoders[i] = robot.allMotors[i].getCurrentPosition();
+        double ultraSoundSensor = robot.getFrontDistance();
+        double laserSensor =  robot.rev2M.getDistance(DistanceUnit.CM);
+        robot.waitForTick(200);
+        double heading = robot.getHeading();
+        double ultraSoundSensor2 = robot.getFrontDistance();
+        double laserSensor2 =  robot.rev2M.getDistance(DistanceUnit.CM);
+        Log.i("foo",String.format("distance %6.1f %5d %5d %5d %5d %6.1f %6.1f %6.1f %6.1f",
+                heading,
+                encoders[0], encoders[1], encoders[2], encoders[3],
+                ultraSoundSensor, laserSensor, ultraSoundSensor2, laserSensor2));
+    }
+
+    void TestAutoR()
+    {
+        robot.RunProgram(AutoPath.programOrbit,this);
+    }
+    void TestAutoC()
+    {
+        robot.RunProgram(AutoPath.programToAndFro,this);
+    }
+    void TestAutoL()
+    {
+        robot.RunProgram(AutoPath.programLeftGold,this);
+    }
+
     int[] programTestDrive = new int[]
             {
                     HardwareCwBot.DRIVE, HardwareCwBot.inches(12.0),
@@ -186,15 +293,6 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
                     HardwareCwBot.STRAFE, HardwareCwBot.inches(12.0)
             };
 
-    void TestAutoR()
-    {
-        robot.RunProgram(AutoPath.programOrbit,this);
-    }
-    void TestAutoC()
-    {
-        robot.RunProgram(AutoPath.programToAndFro,this);
-    }
-
     int[] programTestTurns = new int[]
             {
                     HardwareCwBot.TURN, HardwareCwBot.degrees(90.0),
@@ -203,8 +301,4 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
                     HardwareCwBot.TURN, HardwareCwBot.degrees(90.0)
             };
 
-    void TestAutoL()
-    {
-        robot.RunProgram(AutoPath.programLeftGold,this);
-    }
 }

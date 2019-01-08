@@ -60,8 +60,11 @@ public class HardwareCwBot
     {}
 
     // Mecanum wheels - Neverest Orbital 20
-    static public final double msPerInch = 17.2;  // 1.0 inch is 17.2 full power milliseconds.
-    static public final double msPerCm = 6.79;
+    // 1.0 inch is this many full power milliseconds.
+    // Was 17.2 msec/inch before calibration with ultrasound and laser.
+    // It was observed to be a factor of 1.0286 too large.
+    static public final double msPerInch = 16.72;
+    static public final double msPerCm = 6.583;
     static public final double msPerDegree = 3.474;
 
     // Return run time in msec for driving amounts.
@@ -131,6 +134,38 @@ public class HardwareCwBot
         // and named "imu".
         imu = hwMap.get(BNO055IMU.class, "IMU");
         imu.initialize(imuParameters);
+    }
+
+    /* Initialize standard Hardware interfaces */
+    public void simpleInit(HardwareMap ahwMap)
+    {
+        // Save reference to Hardware map
+        hwMap = ahwMap;
+
+        // Define and Initialize Motors
+        backRight = hwMap.dcMotor.get("backRight");
+        backLeft = hwMap.dcMotor.get("backLeft");
+        frontRight = hwMap.dcMotor.get("frontRight");
+        frontLeft = hwMap.dcMotor.get("frontLeft");
+
+        allMotors = new DcMotor[] {frontLeft, frontRight, backLeft, backRight};
+        turnFactors = new double[]{1.0, -1.0, 1.0, -1.0};
+        driveFactors = new double[] {1.0, 1.0, 1.0, 1.0};
+        // The back end of the robot is heavy. This makes the back motors more effective.
+        strafeFactors = new double[] {1.0, -1.0, -1.0, 1.0};
+
+        frontRight.setDirection(DcMotor.Direction.REVERSE);
+        frontLeft.setDirection(DcMotor.Direction.FORWARD);
+        backRight.setDirection(DcMotor.Direction.REVERSE);
+        backLeft.setDirection(DcMotor.Direction.FORWARD);
+
+        for (DcMotor m : allMotors)
+        {
+            m.setPower(0.0);
+            m.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            m.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        }
     }
 
     public double[] getDrivePowersFromAngle(double angle) {
@@ -225,7 +260,7 @@ public class HardwareCwBot
         }
     }
 
-    private double runPower = 0.5;
+    double runPower = 0.5;
 
     void Drive(int fullPowerMs, LinearOpMode caller)
     {
