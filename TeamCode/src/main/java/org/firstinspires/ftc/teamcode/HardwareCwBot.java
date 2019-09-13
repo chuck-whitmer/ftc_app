@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DeviceInterfaceModule;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.I2cDeviceSynch;
@@ -32,7 +33,10 @@ public class HardwareCwBot
     DeviceInterfaceModule dim;
     AnalogInput dsFront;
     AnalogInput dsLeft;
+    AnalogInput revPotentiometer;
+
     double systemVoltage;
+    DigitalChannel armEndSwitch;
 
     public static final double PHONE_VERTICAL =  0.4 ;
     public static final double PHONE_AT_45 =  0.2 ;
@@ -78,6 +82,7 @@ public class HardwareCwBot
         return  (int) Math.round(d * msPerDegree);
     }
 
+
     /* Initialize standard Hardware interfaces */
     public void init(HardwareMap ahwMap)
     {
@@ -88,10 +93,14 @@ public class HardwareCwBot
         dim = hwMap.get(DeviceInterfaceModule.class, "DIM1");   //  Use generic form of device mapping
 //        AnalogInput ds = hardwareMap.get(AnalogInput.class, "Ultrasound");
         dsFront = new AnalogInput(dim,7);
-        dsLeft = new AnalogInput(dim,6);
+        revPotentiometer = new AnalogInput(dim,6);
+
         systemVoltage = dsFront.getMaxVoltage();
         setBlueLED(false);
         setRedLED(false);
+
+        armEndSwitch = hwMap.get(DigitalChannel.class, "armEndSwitch");
+        armEndSwitch.setMode(DigitalChannel.Mode.INPUT);
 
         // Define and Initialize Motors
         backRight = hwMap.dcMotor.get("backRight");
@@ -811,7 +820,7 @@ public class HardwareCwBot
         // The atan2 returns the half-angle, so double it and convert to degrees.
         double angle = -Math.atan2(s,c) * 360.0 / Math.PI; // The atan gives us the half-angle.
         // Put the angle in the range from -180 to 180.
-        return normalizeAngle(angle + headingOffset);
+        return -normalizeAngle(angle + headingOffset);
     }
 
     double getHeadingWithLog()
@@ -832,7 +841,7 @@ public class HardwareCwBot
         // The atan2 returns the half-angle, so double it and convert to degrees.
         double angle = -Math.atan2(s,c) * 360.0 / Math.PI; // The atan gives us the half-angle.
         // Put the angle in the range from -180 to 180.
-        return normalizeAngle(angle + headingOffset);
+        return -normalizeAngle(angle + headingOffset);
     }
 
     // Return an equivalent angle from -180 to 180.
@@ -855,9 +864,9 @@ public class HardwareCwBot
         return Math.round(dsFront.getVoltage()/systemVoltage*1024.0);
     }
 
-    public double getLeftDistance() // in cm
+    public double getPotentiometer()
     {
-        return Math.round(dsLeft.getVoltage()/systemVoltage*1024.0);
+        return Math.round(revPotentiometer.getVoltage()/systemVoltage*1024.0);
     }
 
     public void setBlueLED(boolean on)

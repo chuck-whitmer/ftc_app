@@ -36,6 +36,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Quaternion;
 
 /**
  * This OpMode uses the common HardwareK9bot class to define the devices on the robot.
@@ -140,7 +141,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             // YBA = PID
             if (yPressed)
             {
-                ExerciseDistanceSensors();
+                TestAutoR();
             }
 
             if (bPressed)
@@ -158,16 +159,20 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
             int encoderC = robot.frontRight.getCurrentPosition();
             int encoderD = robot.backRight.getCurrentPosition();
 
-            //Quaternion q = robot.imu.getQuaternionOrientation();
-            //telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
+            Quaternion q = robot.imu.getQuaternionOrientation();
+            telemetry.addData("Q", "%.5f %.5f %.5f %.5f",q.w,q.x,q.y,q.z);
             telemetry.addData("heading", "%.1f",robot.getHeading());
             telemetry.addData("Encoders","%6d %6d %6d %6d", encoderA,encoderB,encoderC,encoderD);
+
+
 //            telemetry.addData("PID", "%.5f %.5f %.5f",robot.runWithHeadingKp,robot.runWithHeadingKi,robot.runWithHeadingKd);
             // The sonar only refreshes at 6.7 Hz.
             // We will average over 1 second to reduce noise.
             double dLeft = robot.getFrontDistance();
             double dRight = robot.rev2M.getDistance(DistanceUnit.CM);
-            telemetry.addData("ds",  "%.2f %.2f", dLeft, dRight);
+            int isEnd = robot.armEndSwitch.getState() ? 1 : 0;
+            double potent = robot.getPotentiometer();
+            telemetry.addData("ds",  "%.2f %.2f switch %d pot %.0f", dLeft, dRight, isEnd, potent);
             telemetry.update();
 
             // Pause for 40 mS each cycle = update 25 times a second.
@@ -229,7 +234,7 @@ public class cwbotTeleopTank_Linear extends LinearOpMode
 
     void RetreatAndLogSensors()
     {
-        double stepDistance = 8.0; // inches
+        double stepDistance = 4.0; // inches
         robot.runPower = 0.25;
         for (int i=0; i<4; i++)
         {
